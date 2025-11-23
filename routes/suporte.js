@@ -2,10 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const SuporteController = require("../controllers/suporteController");
-const { verifyToken } = require("../middleware/authMiddleware");
-
-// Todas as rotas de suporte são protegidas pelo JWT
-router.use(verifyToken);
+// Removidas as linhas de importação e uso do verifyToken
 
 // Endpoint: GET /api/v1/suporte/tickets?status=abertos|todos
 router.get("/tickets", SuporteController.getMeusTickets);

@@ -1,5 +1,5 @@
 // src/controllers/crudController.js
-const ixc = require("./services/ixc");
+const ixc = require("../services/ixc"); // CORREÇÃO: Usar caminho relativo correto
 
 /**
  * @desc Método GET: Lista ou filtra registros de qualquer entidade.
@@ -40,7 +40,7 @@ exports.manageRecord = async (req, res) => {
   }
 
   try {
-    // action será usado como header 'ixcsoft'
+    // action será usado como argumento para o wrapper do service
     const resultado = await ixc.post(entity, data, action);
     return res.status(200).json({
       message: `Registro de ${entity} ${action} com sucesso.`,
