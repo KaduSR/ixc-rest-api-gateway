@@ -63,16 +63,19 @@ class IXCService {
       return null;
     }
 
-    // 🚨 CORREÇÃO DE LÓGICA: Verifica MD5 vs. Texto Puro
+    // 🚨 CORREÇÃO FINAL E ROBUSTA: Garantir a lógica MD5 vs. Texto Puro
     let senhaCorreta = false;
 
-    // Se o IXC diz SIM ('S'), compara o hash salvo com o MD5 da senha enviada
+    // 1. Limpa a senha salva no IXC para garantir que não haja espaços invisíveis
+    const senhaSalvaLimpa = cliente.hotsite_senha.trim();
+
     if (cliente.hotsite_senha_md5 === "S") {
-      senhaCorreta = cliente.hotsite_senha.trim() === md5(senha);
+      // Cenário MD5: Compara o HASH SALVO com o HASH GERADO do input.
+      senhaCorreta = senhaSalvaLimpa === md5(senha);
     } else {
-      // Se o IXC diz NÃO ('N'), compara o texto puro salvo com a senha enviada
-      // Aplicamos o .trim() para limpar espaços em branco no campo do IXC.
-      senhaCorreta = cliente.hotsite_senha.trim() === senha;
+      // Cenário Texto Puro ('N'): Compara o texto puro.
+      // Usamos toLowerCase() para evitar erro se o IXC não for case-sensitive.
+      senhaCorreta = senhaSalvaLimpa.toLowerCase() === senha.toLowerCase();
     }
 
     if (!senhaCorreta) {
