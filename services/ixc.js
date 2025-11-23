@@ -1,29 +1,41 @@
 // src/services/ixc.js
 
-// 🚨 CORREÇÃO CRÍTICA: Caminho relativo direto para o arquivo compilado
+// 🚨 CORREÇÃO DE CAMINHO: Aponta para a pasta compilada no diretório acima
 const { IxcOrm, Recurso } = require("../../ixc-orm/dist/index");
 const md5 = require("md5");
 
 // --- 1. Definição das Classes de Modelo (Mapeamento de Tabelas) ---
 
+/**
+ * Representa a tabela 'cliente'.
+ */
 class Cliente extends IxcOrm {
   constructor() {
     super("cliente");
   }
 }
 
+/**
+ * Representa a tabela 'cliente_contrato'.
+ */
 class ClienteContrato extends IxcOrm {
   constructor() {
     super("cliente_contrato");
   }
 }
 
+/**
+ * Representa a tabela 'radusuarios' (Login PPPoE/Hotspot).
+ */
 class RadUsuarios extends IxcOrm {
   constructor() {
     super("radusuarios");
   }
 }
 
+/**
+ * Representa a tabela 'su_ticket'.
+ */
 class SuTicket extends IxcOrm {
   constructor() {
     super("su_ticket");
@@ -47,21 +59,25 @@ class IXCService {
 
     const cliente = res.registros()?.[0];
 
-if (res.fail() || !cliente) {
-  return null;
-}
+    if (res.fail() || !cliente) {
+      return null;
+    }
 
-// 2. Lógica de verificação de senha (mantida localmente)
-let senhaCorreta = false;
-if (cliente.hotsite_senha_md5 === "N") {
-  senhaCorreta = cliente.hotsite_senha === md5(senha);
-} else {
-  // 🚨 CORREÇÃO FINAL: Limpar a senha do IXC com .trim()
-  senhaCorreta = cliente.hotsite_senha.trim() === senha;
-}
-if (!senhaCorreta) {
-  return null;
-}
+    // 🚨 CORREÇÃO DE LÓGICA: Verifica MD5 vs. Texto Puro
+    let senhaCorreta = false;
+
+    // Se o IXC diz SIM ('S'), compara o hash salvo com o MD5 da senha enviada
+    if (cliente.hotsite_senha_md5 === "S") {
+      senhaCorreta = cliente.hotsite_senha.trim() === md5(senha);
+    } else {
+      // Se o IXC diz NÃO ('N'), compara o texto puro salvo com a senha enviada
+      // Aplicamos o .trim() para limpar espaços em branco no campo do IXC.
+      senhaCorreta = cliente.hotsite_senha.trim() === senha;
+    }
+
+    if (!senhaCorreta) {
+      return null;
+    }
 
     return {
       id: cliente.id,
@@ -82,7 +98,6 @@ if (!senhaCorreta) {
   }
 
   async getDadosCadastrais(idCliente) {
-    // Reutiliza a busca do cliente e formata para o Controller
     const cliente = await this.getDadosCliente(idCliente);
 
     if (!cliente) {
