@@ -1,6 +1,7 @@
 // src/services/ixc.js
 const axios = require("axios");
 const { Buffer } = require("node:buffer");
+const md5 = require("md5"); // Certifique-se de instalar: npm install md5
 
 class IXCService {
   constructor() {
@@ -21,116 +22,113 @@ class IXCService {
       headers: {
         Authorization: this.authHeader,
         "Content-Type": "application/json",
-        // Desativa a verificação de SSL se o seu certificado for Self-Signed (Render/Host)
-        Accept: "application/json",
       },
+      // Configuração para aceitar certificados auto-assinados (útil para IXC)
+      httpsAgent: new (require("https").Agent)({
+        rejectUnauthorized: false,
+      }),
       timeout: 15000,
-      // Habilita proxy para self-signed, se necessário (depende do ambiente)
-      // httpsAgent: new require("https").Agent({ rejectUnauthorized: false }),
     });
   }
 
   // =========================================================
-  // MÉTODOS BASE (CRUD Genérico)
+  // MÉTODO BASE CORRIGIDO (O CORAÇÃO DO GATEWAY)
   // =========================================================
 
   /**
-   * Lista ou filtra registros (GET). O corpo são os Query Params.
+   * Mapeia requisições REST (GET, POST, PUT, DELETE) para o formato do IXC.
    */
-  async list(endpoint, data = {}) {
+  async ixcRequest(endpoint, method, data = {}, params = {}) {
     try {
-      // O header ixcsoft: 'listar' indica busca
-      const response = await this.api.post(endpoint, data, {
-        headers: { ixcsoft: "listar" },
-      });
-      return response.data;
-    } catch (error) {
-      console.error(`[IXC] Erro ao listar ${endpoint}:`, error.message);
-      throw error;
-    }
-  }
+      let config = {
+        url: `/${endpoint}`,
+        data: data,
+        headers: {},
+      };
 
-  /**
-   * Insere ou edita registros (POST/PUT).
-   */
-  async post(endpoint, data, ixcsoftAction = "inserir") {
-    try {
-      // ixcsoftAction pode ser 'inserir', 'editar', etc.
-      const response = await this.api.post(endpoint, data, {
-        headers: { ixcsoft: ixcsoftAction },
-      });
-      return response.data;
-    } catch (error) {
-      console.error(
-        `[IXC] Erro ao executar ${ixcsoftAction} em ${endpoint}:`,
-        error.message
-      );
-      // O IXC retorna erros como sucesso 200, então verificamos a resposta
-      if (error.response && error.response.data && error.response.data.error) {
-        throw new Error(error.response.data.error);
+      if (method === "get") {
+        // 💡 IXC LISTAGEM: POST com header ixcsoft: listar e filtros no corpo
+        config.method = "post";
+        config.headers.ixcsoft = "listar";
+        config.data = params;
+      } else if (method === "post") {
+        // 💡 IXC CRIAÇÃO: POST com header ixcsoft: inserir
+        config.method = "post";
+        config.headers.ixcsoft = "inserir";
+      } else if (method === "put") {
+        // 💡 IXC EDIÇÃO: POST com header ixcsoft: editar
+        config.method = "post";
+        config.headers.ixcsoft = "editar";
+        if (!data.id)
+          throw new Error("ID do registro é obrigatório para edição.");
+      } else if (method === "delete") {
+        // IXC DELEÇÃO: DELETE /endpoint/ID
+        const idRegistro = params.id || data.id;
+        if (!idRegistro)
+          throw new Error("ID do registro é obrigatório para exclusão.");
+        config.method = "delete";
+        config.url = `/${endpoint}/${idRegistro}`;
+        config.data = undefined;
+      } else {
+        throw new Error(`Método ${method.toUpperCase()} não suportado.`);
       }
-      throw error;
-    }
-  }
 
-  /**
-   * Deleta um registro (DELETE).
-   */
-  async delete(endpoint, id) {
-    try {
-      // O corpo deve conter apenas o ID do registro a ser deletado
-      const response = await this.api.delete(`${endpoint}/${id}`);
+      const response = await this.api(config);
       return response.data;
     } catch (error) {
-      console.error(`[IXC] Erro ao deletar ${endpoint}/${id}:`, error.message);
-      throw error;
+      const errorData = error.response ? error.response.data : error.message;
+      // Re-lança um erro mais limpo para ser tratado pelo controller
+      throw new Error(errorData || "Erro interno ao comunicar com a API IXC.");
     }
   }
 
   // =========================================================
-  // AUTENTICAÇÃO (Login por Email Hotsite e Senha Pura)
+  // MÉTODOS DE AUTENTICAÇÃO
   // =========================================================
 
   /**
-   * Tenta autenticar um cliente usando email e senha do hotsite.
-   * @param {string} email - O email do cliente (hotsite_email).
-   * @param {string} senha - A senha pura do hotsite (hotsite_senha).
-   * @returns {object|null} Retorna o objeto cliente essencial ou null.
+   * Tenta autenticar um cliente usando login e senha do hotsite.
    */
-  async authenticate(email, senha) {
-    try {
-      // 1. Busca o cliente por email do hotsite
-      const busca = await this.list("cliente", {
-        qtype: "cliente.hotsite_email",
-        query: email,
-        oper: "=",
-        rp: "1",
-      });
+  async authenticate(login, senha) {
+    const payload = {
+      qtype: "cliente.hotsite_login",
+      query: login,
+      oper: "=",
+      limit: 1,
+    };
 
-      const cliente = busca.registros?.[0];
+    // Usa o método base para listar o cliente pelo login
+    const clienteRes = await this.ixcRequest("cliente", "get", null, payload);
+    const cliente = clienteRes.registros?.[0];
 
-      if (!cliente) {
-        return null; // Cliente não encontrado
-      }
+    if (!cliente) {
+      return null; // Cliente não encontrado ou login inválido
+    }
 
-      // 2. Compara a senha pura:
-      if (cliente.hotsite_senha === senha) {
-        // Retorna o objeto cliente com os dados essenciais para o token JWT
-        return {
-          id: cliente.id,
-          email: cliente.hotsite_email,
-          nome_razaosocial: cliente.razao || cliente.fantasia,
-          // Adicione outros campos necessários aqui
-        };
-      }
+    // 💡 Lógica CRÍTICA: Verifica a senha no IXC
+    let senhaCorreta = false;
 
+    // O campo 'hotsite_senha_md5' indica se a senha está em MD5
+    if (cliente.hotsite_senha_md5 === "S") {
+      senhaCorreta = cliente.hotsite_senha === md5(senha);
+    } else {
+      // Se 'hotsite_senha_md5' for 'N', a senha é comparada em texto puro
+      senhaCorreta = cliente.hotsite_senha === senha;
+    }
+
+    if (!senhaCorreta) {
       return null; // Senha incorreta
-    } catch (error) {
-      console.error("[IXCService] Erro na autenticação:", error.message);
-      return null;
     }
+
+    // Retorna os dados essenciais para o Controller/JWT
+    return {
+      id: cliente.id,
+      nome: cliente.razao || cliente.fantasia || cliente.nome_razaosocial,
+      email: cliente.hotsite_email,
+      cpf_cnpj: cliente.cnpj_cpf,
+    };
   }
 }
 
-// Exporta uma única instância para ser usada em toda a aplicação
+// Exporta uma instância única (Singleton)
 module.exports = new IXCService();
