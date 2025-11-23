@@ -63,23 +63,34 @@ class IXCService {
       return null;
     }
 
-    let senhaCorreta = false;
+    // 🚨 INÍCIO DO DEBUG CRÍTICO
+    console.log("--- DEBUG IXC AUTH ---");
+    console.log("Login:", login);
+    console.log("MD5 no IXC (S/N):", cliente.hotsite_senha_md5);
+    console.log("Senha Enviada (Input):", senha);
 
-    // 1. Limpa a senha salva no IXC (remove espaços)
+    // Mostra o que o IXC retornou antes de qualquer modificação
+    console.log("Senha Salva (IXC RAW):", cliente.hotsite_senha);
+
+    // Mostra o hash que seria usado para comparação
+    if (cliente.hotsite_senha_md5 === "S") {
+      console.log("HASH MD5 GERADO:", md5(senha));
+    }
+    // 🚨 FIM DO DEBUG CRÍTICO
+
+    let senhaCorreta = false;
     const senhaSalvaLimpa = cliente.hotsite_senha.trim();
 
     if (cliente.hotsite_senha_md5 === "S") {
-      // Cenário MD5: Compara o HASH SALVO com o HASH GERADO do input.
       senhaCorreta = senhaSalvaLimpa === md5(senha);
     } else {
-      // Cenário Texto Puro ('N'): Compara o texto puro.
-      // Usamos .toLowerCase() para eliminar falhas de case-sensitivity no IXC.
       senhaCorreta = senhaSalvaLimpa.toLowerCase() === senha.toLowerCase();
     }
 
     if (!senhaCorreta) {
       return null;
     }
+    
     return {
       id: cliente.id,
       nome: cliente.razao || cliente.fantasia || cliente.nome_razaosocial,
