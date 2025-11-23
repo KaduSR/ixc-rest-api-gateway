@@ -12,13 +12,13 @@ const PORT = process.env.PORT || 3000;
 // Importa o serviço IXC (para garantir que a conexão está ok)
 const ixcService = require("./services/ixc");
 // Importa as Rotas e o Middleware
-const authRoutes = require("./src/routes/auth");
-const dashboardRoutes = require("./src/routes/dashboard");
-const financeiroRoutes = require("./src/routes/financeiro");
-const suporteRoutes = require("./src/routes/suporte");
-const tecnicoRoutes = require("./src/routes/tecnico");
-const clienteRoutes = require("./src/routes/cliente");
-const { verifyToken } = require("./src/middleware/authMiddleware");
+const authRoutes = require("./routes/auth");
+const dashboardRoutes = require("./routes/dashboard");
+const financeiroRoutes = require("./routes/financeiro");
+const suporteRoutes = require("./routes/suporte");
+const tecnicoRoutes = require("./routes/tecnico");
+const clienteRoutes = require("./routes/cliente");
+const { verifyToken } = require("./middleware/authMiddleware");
 
 // ----------------------------------------------------
 // 2. MIDDLEWARES GERAIS
