@@ -10,8 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Importa o serviço IXC (para garantir que a conexão está ok)
-const ixcService = require("./src/services/ixc");
-
+const ixcService = require("./services/ixc");
 // Importa as Rotas e o Middleware
 const authRoutes = require("./src/routes/auth");
 const dashboardRoutes = require("./src/routes/dashboard");
