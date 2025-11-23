@@ -47,21 +47,22 @@ class IXCService {
 
     const cliente = res.registros()?.[0];
 
-    if (res.fail() || !cliente) {
-      return null;
-    }
+if (res.fail() || !cliente) {
+  return null;
+}
 
-    let senhaCorreta = false;
-    if (cliente.hotsite_senha_md5 === "S") {
-      senhaComparada = md5(senha);
-      senhaCorreta = cliente.hotsite_senha === senhaComparada;
-    } else {
-      senhaCorreta = cliente.hotsite_senha.trim() === senha;
-    }
+// 2. Lógica de verificação de senha (mantida localmente)
+let senhaCorreta = false;
+if (cliente.hotsite_senha_md5 === "S") {
+  senhaCorreta = cliente.hotsite_senha === md5(senha);
+} else {
+  // 🚨 CORREÇÃO APLICADA: Usar .trim() para remover espaços invisíveis
+  senhaCorreta = cliente.hotsite_senha.trim() === senha;
+}
 
-    if (!senhaCorreta) {
-      return null;
-    }
+if (!senhaCorreta) {
+  return null;
+}
 
     return {
       id: cliente.id,
