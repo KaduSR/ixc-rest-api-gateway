@@ -1,5 +1,5 @@
 // src/controllers/crudController.js
-const ixc = require("../services/ixc");
+const ixc = require("./services/ixc");
 
 /**
  * @desc Método GET: Lista ou filtra registros de qualquer entidade.

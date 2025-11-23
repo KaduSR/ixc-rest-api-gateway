@@ -1,8 +1,8 @@
 // src/routes/suporte.js
 const express = require("express");
 const router = express.Router();
-const SuporteController = require("../controllers/suporteController");
-const { verifyToken } = require("../middleware/authMiddleware");
+const SuporteController = require("./controllers/suporteController");
+const { verifyToken } = require("./middleware/authMiddleware");
 
 // Todas as rotas de suporte são protegidas pelo JWT
 router.use(verifyToken);

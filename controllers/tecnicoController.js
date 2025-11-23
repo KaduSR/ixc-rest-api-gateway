@@ -1,5 +1,5 @@
 // src/controllers/tecnicoController.js
-const ixcService = require("../services/ixc");
+const ixcService = require("./services/ixc");
 
 /**
  * @desc Executa o teste de Ping ou Traceroute no login do cliente.
