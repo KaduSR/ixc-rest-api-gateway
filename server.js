@@ -1,78 +1,179 @@
-// server.js
+// src/server.js
 // ===========================================================
-// SERVIDOR IXC GATEWAY
+// SERVIDOR FIBERNET - VERSÃO FINAL CORRIGIDA E OTIMIZADA
+// CORS 100% FUNCIONAL COM VERCEL + RENDER
 // ===========================================================
 
-require("dotenv").config(); // Para carregar .env
+// Carrega variáveis de ambiente (como PORT, JWT_SECRET, etc.)
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const app = express();
-const PORT = process.env.PORT || 3000;
+const rateLimit = require("express-rate-limit");
+const bodyParser = require("body-parser");
 
-// Importa o serviço IXC (para garantir que a conexão está ok)
-const ixcService = require("./services/ixc");
-// Importa as Rotas e o Middleware
-const authRoutes = require("./routes/auth");
-const dashboardRoutes = require("./routes/dashboard");
-const financeiroRoutes = require("./routes/financeiro");
-const suporteRoutes = require("./routes/suporte");
-const tecnicoRoutes = require("./routes/tecnico");
-const clienteRoutes = require("./routes/cliente");
+// =========================================================
+// IMPORTS DE SERVIÇOS E MIDDLEWARE
+// =========================================================
+// 💡 Verifique se o arquivo 'instabilidadeScheduler.js' existe no caminho './cron/'
+const {
+  startScheduler,
+  stopScheduler,
+} = require("./cron/instabilidadeScheduler");
+// 💡 Verifique se o arquivo 'authMiddleware.js' existe no caminho './middleware/'
 const { verifyToken } = require("./middleware/authMiddleware");
 
-// ----------------------------------------------------
-// 2. MIDDLEWARES GERAIS
-// ----------------------------------------------------
-app.use(express.json()); // Body parser para JSON
-app.use(cors()); // Permite requisições de outras origens (CORS)
+// =========================================================
+// IMPORTS DE ROTAS
+// 💡 VERIFIQUE CAPITALIZAÇÃO (Case-Sensitivity)
+// Se seu arquivo se chama 'Dashboard.js', mude para require("./routes/Dashboard")
+// =========================================================
+const speedtestRoute = require("./routes/speedtest");
+const instabilidadeRoutes = require("./routes/instabilidade");
+const authRoutes = require("./routes/auth");
+const financeiroRoutes = require("./routes/financeiro");
+const dashboardRoutes = require("./routes/dashboard"); // Caminho que estava com erro
+const chatbotRoutes = require("./routes/chatbot");
 
-// ----------------------------------------------------
-// 3. ROTAS DA API
-// ----------------------------------------------------
+// Importa o Controller CRUD genérico
+const crudController = require("./controllers/crudController");
 
-// Rota de saúde (Health check)
-app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "API Gateway Online",
-    service:
-      "Authentication, Dashboard, Financeiro, Suporte, Técnico & Cliente Ready",
-    ixc_url: process.env.IXC_API_URL,
-    version: "v1",
-    endpoints: [
-      "POST /api/v1/auth/login",
-      "GET /api/v1/dashboard/data (Protegida por JWT)",
-      "GET /api/v1/financeiro/faturas (Protegida por JWT)",
-      "GET /api/v1/financeiro/fatura/:id/pagamento (Protegida por JWT)",
-      "GET /api/v1/suporte/tickets?status=abertos|todos (Protegida por JWT)",
-      "POST /api/v1/suporte/ticket/abrir (Protegida por JWT)",
-      "POST /api/v1/tecnico/teste (Protegida por JWT)",
-      "POST /api/v1/tecnico/desbloqueio (Protegida por JWT)",
-      "POST /api/v1/cliente/alterar-senha (Protegida por JWT)",
-      "GET /api/v1/cliente/dados-login (Protegida por JWT)",
-      // 💡 NOVOS ENDPOINTS:
-      "GET /api/v1/cliente/detalhes-contrato (Protegida por JWT)",
-      "GET /api/v1/cliente/dados-cadastrais (Protegida por JWT)",
-      "PUT /api/v1/cliente/dados-cadastrais (Protegida por JWT - EDIÇÃO)",
-    ],
-  });
+// =========================================================
+// INICIALIZAÇÃO EXPRESS
+// =========================================================
+const app = express();
+const PORT = process.env.PORT || 10000;
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+// =========================================================
+// MIDDLEWARE DE SEGURANÇA E CORS
+// =========================================================
+
+// 1. Configuração do Rate Limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 1000, // Limite de 1000 requisições por IP por windowMs
+  message: "Muitas requisições. Tente novamente após 15 minutos.",
 });
+app.use(limiter);
 
-// INTEGRAÇÃO DAS ROTAS
-app.use("/api/v1/auth", authRoutes);
+// 2. Configuração do CORS para ambientes Vercel/Render e local
+const whitelist = [
+  // Adicione seus domínios de frontend de produção aqui:
+  "https://seu-frontend-producao.com.br",
+  "http://localhost:3000", // Ambiente de desenvolvimento local
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (NODE_ENV === "development" || !origin) {
+      // Permite requisições sem 'origin' (ex: apps mobile) ou em dev
+      callback(null, true);
+    } else if (
+      origin.endsWith(".vercel.app") ||
+      origin.endsWith(".render.com")
+    ) {
+      // Permite qualquer subdomínio do Vercel ou Render (ambientes de deploy)
+      callback(null, true);
+    } else if (whitelist.includes(origin)) {
+      // Permite os domínios da lista
+      callback(null, true);
+    } else {
+      callback(new Error(`Não permitido pelo CORS. Origin: ${origin}`));
+    }
+  },
+  credentials: true, // Necessário para cookies ou cabeçalhos de autorização
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+// 3. Body Parsers (para JSON e urlencoded)
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json());
+
+// =========================================================
+// ROTAS
+// O prefixo /api/v1 é usado para versionamento
+// =========================================================
+
+// Rotas de Autenticação (sem JWT) - EXIGEM CORPO DA REQUISIÇÃO
+app.use("/api/v1/auth", authRoutes); // Ex: /api/v1/auth/login
+
+// Middleware de autenticação JWT para todas as rotas abaixo
+app.use(verifyToken);
+
+// Rotas Protegidas (Exigem JWT)
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/financeiro", financeiroRoutes);
-app.use("/api/v1/suporte", suporteRoutes);
-app.use("/api/v1/tecnico", tecnicoRoutes);
-// 💡 INTEGRAÇÃO DA ROTA CLIENTE
-app.use("/api/v1/cliente", clienteRoutes);
+app.use("/api/v1/speedtest", speedtestRoute);
+app.use("/api/v1/instabilidade", instabilidadeRoutes);
+app.use("/api/v1/chatbot", chatbotRoutes);
 
-// ----------------------------------------------------
-// 4. INICIA O SERVIDOR
-// ----------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`\n==============================================`);
-  console.log(`🚀 API Gateway IXC rodando na porta ${PORT}`);
-  console.log(`🔗 Conectado à API IXC: ${process.env.IXC_API_URL}`);
-  console.log(`✅ Fluxos de Perfil e Contrato prontos.`);
-  console.log(`==============================================\n`);
+// Rotas de CRUD Genérico (APIs mais perigosas)
+app.get("/api/v1/data/:entity", crudController.listRecords); // GET /api/v1/data/cliente
+app.post("/api/v1/data/:entity/:action", crudController.manageRecord); // POST /api/v1/data/cliente/inserir
+app.delete("/api/v1/data/:entity/:id", crudController.deleteRecord); // DELETE /api/v1/data/cliente/1
+
+// =========================================================
+// INICIALIZAÇÃO DO SERVIDOR
+// =========================================================
+const server = app.listen(PORT, () => {
+  console.log("\n");
+  console.log("╔════════════════════════════════════════════════════════════╗");
+  console.log("║           SERVIDOR FIBERNET - INICIALIZADO COM SUCESSO     ║");
+  console.log("╚════════════════════════════════════════════════════════════╝");
+  console.log(`\nServidor rodando na porta: ${PORT}`);
+  console.log(`Ambiente: ${NODE_ENV}`);
+  console.log(`CORS: ATIVO E FUNCIONANDO`);
+  console.log(`Frontend permitido: Vercel, Render e Whitelist local.\n`);
+
+  // Iniciar scheduler de monitoramento
+  try {
+    const interval = process.env.SCHEDULER_INTERVAL || "*/5 * * * *"; // A cada 5 minutos
+    startScheduler(interval);
+    console.log(`Scheduler de instabilidade iniciado (${interval})`);
+  } catch (e) {
+    console.error("Erro ao iniciar scheduler:", e.message);
+  }
+
+  console.log("Tudo pronto! Seu portal do cliente está online.");
+  console.log(
+    "══════════════════════════════════════════════════════════════\n"
+  );
 });
+
+// =========================================================
+// GRACEFUL SHUTDOWN (Encerramento Limpo)
+// =========================================================
+function shutdown() {
+  console.log("\nEncerrando servidor...");
+  server.close(() => {
+    // Para o scheduler antes de sair
+    stopScheduler();
+    console.log("Servidor Express encerrado.");
+    process.exit(0);
+  });
+
+  // Força o encerramento se não fechar em 10 segundos
+  setTimeout(() => {
+    console.error("Forçando o encerramento após timeout.");
+    process.exit(1);
+  }, 10000);
+}
+
+// Interceptadores de Sinais (para o Render/Linux)
+process.on("SIGTERM", shutdown); // Sinal de encerramento
+process.on("SIGINT", shutdown); // Ctrl+C
+
+// Interceptadores de Erros Críticos (para evitar que o servidor caia)
+process.on("uncaughtException", (err) => {
+  console.error("[FATAL] uncaughtException:", err);
+  shutdown();
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[FATAL] unhandledRejection:", reason);
+  shutdown();
+});
+
+module.exports = app;
