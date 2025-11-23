@@ -2,32 +2,49 @@
 const jwt = require("jsonwebtoken");
 
 /**
- * Middleware para verificar a validade do JWT e anexar os dados do usuário (req.user).
+ * Middleware para verificar o token JWT e anexar o ID do usuário à requisição.
  */
 exports.verifyToken = (req, res, next) => {
+  // 1. Pega o token do header da requisição (Authorization: Bearer <token>)
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: "Token não fornecido." });
+    return res.status(401).json({
+      error: "Acesso negado. Token não fornecido.",
+    });
   }
 
-  const parts = authHeader.split(" ");
-  // Verifica se o formato é 'Bearer <token>'
-  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-    return res
-      .status(401)
-      .json({ error: "Formato do token inválido. Use 'Bearer <token>'" });
-  }
+  // O header é geralmente "Bearer [token]", então separamos o token
+  const token = authHeader.split(" ")[1];
 
-  const token = parts[1];
+  if (!token) {
+    return res.status(401).json({
+      error: "Formato de token inválido (Esperado: Bearer <token>).",
+    });
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Anexa os dados do usuário decodificado ao objeto de requisição
-    req.user = decoded;
+    // 2. Verifica e decodifica o token
+    // Usa a mesma chave secreta definida no authController.js e .env
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "sua-chave-secreta-padrao-muito-forte"
+    );
+
+    // 3. Anexa o ID do usuário e outros dados à requisição para uso posterior
+    req.user = {
+      id: decoded.id, // O ID do cliente IXC que está logado
+      email: decoded.email,
+      nome: decoded.nome,
+    };
+
+    // 4. Continua para a próxima função (controller)
     next();
   } catch (err) {
-    // Erros de JWT: 'TokenExpiredError', 'JsonWebTokenError'
-    return res.status(401).json({ error: "Token inválido ou expirado." });
+    console.error("[AuthMiddleware] Erro na validação do token:", err.message);
+    // Erros comuns: TokenExpiredError, JsonWebTokenError
+    return res.status(401).json({
+      error: "Token inválido ou expirado. Faça login novamente.",
+    });
   }
 };

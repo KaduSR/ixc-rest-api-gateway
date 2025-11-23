@@ -2,6 +2,7 @@
 const axios = require("axios");
 const { Buffer } = require("node:buffer");
 const md5 = require("md5"); // Certifique-se de instalar: npm install md5
+const jwt = require("jsonwebtoken");
 
 class IXCService {
   constructor() {
@@ -126,6 +127,207 @@ class IXCService {
       nome: cliente.razao || cliente.fantasia || cliente.nome_razaosocial,
       email: cliente.hotsite_email,
       cpf_cnpj: cliente.cnpj_cpf,
+    };
+  }
+
+  // =========================================================
+  // MÉTODOS DE DADOS DO CLIENTE (PARA DASHBOARD)
+  // =========================================================
+
+  /**
+   * Busca os contratos ativos do cliente.
+   * @param {string} idCliente - ID do cliente IXC.
+   */
+  async getContratos(idCliente) {
+    const payload = {
+      qtype: "cliente_contrato.id_cliente",
+      query: idCliente,
+      oper: "=",
+      rp: "1", // Pega apenas 1 contrato (o principal, geralmente o mais recente)
+      sort: "cliente_contrato.id",
+      sortorder: "desc",
+      filtrar_status_ativo: "S", // Filtra apenas por contratos ativos
+    };
+
+    // O retorno é o registro do contrato
+    const res = await this.ixcRequest("cliente_contrato", "get", null, payload);
+    return res.registros?.[0] || null;
+  }
+
+  /**
+   * Busca as faturas (títulos a receber) do cliente.
+   * @param {string} idCliente - ID do cliente IXC.
+   * @param {string} status - A (Abertas) ou R (Recebidas).
+   */
+  async getFaturas(idCliente, status = "A") {
+    const payload = {
+      qtype: "fn_areceber.id_cliente",
+      query: idCliente,
+      oper: "=",
+      rp: "10", // Limita a 10 faturas (Ex.: 5 abertas e 5 pagas)
+      sort: "fn_areceber.data_vencimento",
+      sortorder: "desc",
+      filtrar_status_aberto: status === "A" ? "S" : "N",
+      filtrar_status_recebido: status === "R" ? "S" : "N",
+    };
+
+    // O retorno é uma lista de faturas
+    const res = await this.ixcRequest("fn_areceber", "get", null, payload);
+    return res.registros || [];
+  }
+
+  // =========================================================
+  // MÉTODOS DE COBRANÇA E BOLETO
+  // =========================================================
+
+  /**
+   * Busca o link do Gateway de pagamento ou gera o boleto em Base64.
+   * @param {string} idFatura - ID do título (fn_areceber.id).
+   */
+  async getPaymentLinkOrBoleto(idFatura) {
+    if (!idFatura) {
+      throw new Error("ID da fatura é obrigatório para gerar o pagamento.");
+    }
+
+    // 1. Tenta buscar o link do Gateway (PIX, cartão, etc.)
+    try {
+      const payloadLink = {
+        id_cobranca: idFatura,
+        // O IXC usa um endpoint especial 'get_boleto' para boletos/links
+      };
+
+      // Tenta a chamada do boleto/link
+      // O get_boleto não usa o header ixcsoft, então redefinimos o config no ixcRequest
+      const response = await this.ixcRequest(
+        "get_boleto",
+        "post",
+        payloadLink,
+        {
+          ixcsoft: "get_boleto", // Pode ser necessário especificar o header aqui
+        }
+      );
+
+      // Se o IXC retornar um link (gateway_link, pix_link, etc.), priorizamos ele
+      if (response.gateway_link || response.pix_link) {
+        return {
+          tipo: "link",
+          link: response.gateway_link || response.pix_link,
+          message: "Link de pagamento/gateway gerado com sucesso.",
+        };
+      }
+
+      // 2. Se não houver link, tenta gerar o PDF Base64
+      const payloadBoleto = {
+        id_cobranca: idFatura,
+        tipo_boleto: "arquivo", // Parâmetro para retornar o arquivo
+        base64: "S", // Parâmetro para retornar em Base64
+      };
+
+      const responseBoleto = await this.ixcRequest(
+        "get_boleto",
+        "post",
+        payloadBoleto,
+        {
+          ixcsoft: "get_boleto",
+        }
+      );
+
+      if (responseBoleto.base64) {
+        return {
+          tipo: "boleto_pdf",
+          base64: responseBoleto.base64,
+          message: "Boleto PDF (Base64) gerado com sucesso.",
+        };
+      }
+
+      // Se nada funcionar
+      return {
+        tipo: "erro",
+        message:
+          "Não foi possível gerar link de pagamento ou boleto para esta fatura. Título já pago ou cancelado.",
+      };
+    } catch (error) {
+      console.error(
+        "[IXC Service - Boleto] Falha ao buscar boleto:",
+        error.message
+      );
+      // O erro pode ser um título já pago, por exemplo
+      throw new Error("Falha na API IXC: " + error.message);
+    }
+  }
+
+  // =========================================================
+  // MÉTODOS DE SUPORTE (su_ticket)
+  // =========================================================
+
+  /**
+   * Busca os tickets/chamados do cliente.
+   * @param {string} idCliente - ID do cliente IXC.
+   * @param {string} status - S (Somente Abertos/Em Andamento) ou T (Todos, incluindo Fechados).
+   */
+  async getTickets(idCliente, status = "S") {
+    const payload = {
+      qtype: "su_ticket.id_cliente",
+      query: idCliente,
+      oper: "=",
+      rp: "20", // Limita a 20 tickets
+      sort: "su_ticket.id",
+      sortorder: "desc",
+      // O campo 'su_status' define se o ticket está ativo ('S') ou todos ('T')
+      filtrar_status_ativo: status === "S" ? "S" : "N",
+    };
+
+    const res = await this.ixcRequest("su_ticket", "get", null, payload);
+    return res.registros || [];
+  }
+
+  /**
+   * Cria um novo ticket de suporte no IXC.
+   * @param {object} ticketData - Dados do ticket (titulo, mensagem, idAssunto).
+   * @param {string} idCliente - ID do cliente IXC.
+   */
+  async createTicket(ticketData, idCliente) {
+    const now = new Date().toISOString().split("T")[0]; // Formato YYYY-MM-DD
+
+    // Mapeamento dos dados mínimos e essenciais para o IXC
+    const payload = {
+      id_cliente: idCliente,
+      id_assunto: ticketData.idAssunto || 0, // ID do Assunto/Setor (veja a tabela su_assunto)
+      titulo: ticketData.titulo,
+      menssagem: ticketData.mensagem, // Sim, "menssagem" com SS
+
+      // Valores fixos para abertura pelo Portal/Hotsite
+      tipo: "C", // C = Chamado
+      origem_cadastro: "P", // P = Portal do Cliente
+      id_ticket_origem: "I", // I = Internet
+      status: "T", // T = Em Atendimento/Em Aberto
+      prioridade: "M", // M = Média
+
+      // Datas e status iniciais
+      data_criacao: now,
+      data_ultima_alteracao: now,
+      su_status: "N", // Status no setor: N = Novo
+      mensagens_nao_lida_sup: "1", // Para alertar o atendente
+
+      // Se tiver contrato, preencha para facilitar o atendimento
+      id_contrato: ticketData.idContrato || "",
+
+      // Dados de contato (opcional, mas bom ter no payload)
+      // O IXC geralmente pega do cadastro do cliente, mas é bom enviar
+      cliente_email: ticketData.email || "",
+    };
+
+    // A chamada para CRIAÇÃO é um POST com header ixcsoft: inserir
+    const res = await this.ixcRequest("su_ticket", "post", payload);
+
+    if (res.error) {
+      throw new Error(`IXC: ${res.error}`);
+    }
+
+    return {
+      success: true,
+      idTicket: res.id,
+      protocolo: res.protocolo,
     };
   }
 }
