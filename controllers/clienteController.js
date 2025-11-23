@@ -1,5 +1,5 @@
 // src/controllers/clienteController.js
-const ixcService = require("./services/ixc");
+const ixcService = require("../services/ixc");
 const md5 = require("md5");
 
 // =========================================================

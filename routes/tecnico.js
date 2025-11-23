@@ -1,8 +1,8 @@
 // src/routes/tecnico.js
 const express = require("express");
 const router = express.Router();
-const TecnicoController = require("./controllers/tecnicoController");
-const { verifyToken } = require("./middleware/authMiddleware");
+const TecnicoController = require("../controllers/tecnicoController");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // Todas as rotas de suporte são protegidas pelo JWT
 router.use(verifyToken);

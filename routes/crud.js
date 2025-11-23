@@ -1,7 +1,7 @@
 // src/routes/crud.js
 const express = require("express");
 const router = express.Router();
-const CrudController = require("./controllers/crudController");
+const CrudController = require("../controllers/crudController");
 
 // =========================================================
 // Rota Única para Listar / Filtrar (GET)

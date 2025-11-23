@@ -1,5 +1,5 @@
 // src/controllers/suporteController.js
-const ixcService = require("./services/ixc");
+const ixcService = require("../services/ixc");
 
 /**
  * @desc Lista todos os tickets do cliente logado.

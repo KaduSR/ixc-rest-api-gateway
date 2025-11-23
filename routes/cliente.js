@@ -1,8 +1,8 @@
 // src/routes/cliente.js
 const express = require("express");
 const router = express.Router();
-const ClienteController = require("./controllers/clienteController");
-const { verifyToken } = require("./middleware/authMiddleware");
+const ClienteController = require("../controllers/clienteController");
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // Todas as rotas de cliente/perfil são protegidas pelo JWT
 router.use(verifyToken);

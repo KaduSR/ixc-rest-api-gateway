@@ -1,6 +1,6 @@
 // src/controllers/authController.js
 const jwt = require("jsonwebtoken"); // Certifique-se de instalar: npm install jsonwebtoken
-const ixcService = require("./services/ixc");
+const ixcService = require("../services/ixc");
 
 exports.login = async (req, res) => {
   const { login, senha } = req.body;
