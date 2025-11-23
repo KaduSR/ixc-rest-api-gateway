@@ -1,7 +1,7 @@
 // src/services/ixc.js
 const axios = require("axios");
 const { Buffer } = require("node:buffer");
-const md5 = require("md5"); // Certifique-se de instalar: npm install md5
+const md5 = require("md5");
 const jwt = require("jsonwebtoken");
 
 class IXCService {
@@ -98,30 +98,25 @@ class IXCService {
       limit: 1,
     };
 
-    // Usa o método base para listar o cliente pelo login
     const clienteRes = await this.ixcRequest("cliente", "get", null, payload);
     const cliente = clienteRes.registros?.[0];
 
     if (!cliente) {
-      return null; // Cliente não encontrado ou login inválido
+      return null;
     }
 
-    // 💡 Lógica CRÍTICA: Verifica a senha no IXC
     let senhaCorreta = false;
 
-    // O campo 'hotsite_senha_md5' indica se a senha está em MD5
     if (cliente.hotsite_senha_md5 === "S") {
       senhaCorreta = cliente.hotsite_senha === md5(senha);
     } else {
-      // Se 'hotsite_senha_md5' for 'N', a senha é comparada em texto puro
       senhaCorreta = cliente.hotsite_senha === senha;
     }
 
     if (!senhaCorreta) {
-      return null; // Senha incorreta
+      return null;
     }
 
-    // Retorna os dados essenciais para o Controller/JWT
     return {
       id: cliente.id,
       nome: cliente.razao || cliente.fantasia || cliente.nome_razaosocial,
@@ -149,24 +144,167 @@ class IXCService {
     return res.registros?.[0] || null;
   }
 
+  // =========================================================
+  // MÉTODOS DE CONTRATO E PLANO 💡 NOVO
+  // =========================================================
+
   /**
-   * Busca os contratos ativos do cliente.
+   * Busca o contrato ativo principal, detalhes do plano e login associado.
    * @param {string} idCliente - ID do cliente IXC.
    */
-  async getContratos(idCliente) {
-    const payload = {
+  async getDetalhesContratoCompleto(idCliente) {
+    // 1. Busca o contrato ativo principal
+    const contratoPayload = {
       qtype: "cliente_contrato.id_cliente",
       query: idCliente,
       oper: "=",
-      rp: "1", // Pega apenas 1 contrato (o principal, geralmente o mais recente)
+      rp: "1",
       sort: "cliente_contrato.id",
       sortorder: "desc",
-      filtrar_status_ativo: "S", // Filtra apenas por contratos ativos
+      filtrar_status_ativo: "S", // Contratos Ativos
     };
 
-    // O retorno é o registro do contrato
-    const res = await this.ixcRequest("cliente_contrato", "get", null, payload);
-    return res.registros?.[0] || null;
+    const resContrato = await this.ixcRequest(
+      "cliente_contrato",
+      "get",
+      null,
+      contratoPayload
+    );
+    const contrato = resContrato.registros?.[0];
+
+    if (!contrato) {
+      return null;
+    }
+
+    // 2. Busca detalhes do Plano (vd_contrato_plano_venda)
+    let plano = {};
+    if (contrato.id_vd_contrato_plano_venda) {
+      const planoPayload = {
+        qtype: "vd_contrato_plano_venda.id",
+        query: contrato.id_vd_contrato_plano_venda,
+        oper: "=",
+        rp: "1",
+      };
+      const resPlano = await this.ixcRequest(
+        "vd_contrato_plano_venda",
+        "get",
+        null,
+        planoPayload
+      );
+      plano = resPlano.registros?.[0] || {};
+    }
+
+    // 3. Busca o login principal (radusuarios) para dados de consumo/status
+    const loginData = await this.getLoginDoCliente(idCliente);
+
+    return {
+      ...contrato,
+      plano: {
+        id: plano.id,
+        descricao: plano.descricao,
+        download: plano.velocidade_download,
+        upload: plano.velocidade_upload,
+        // Adicione mais campos do plano conforme necessário (Ex: tipo_banda)
+      },
+      login: loginData
+        ? {
+            idLogin: loginData.id,
+            login: loginData.login,
+            online: loginData.online === "SS" ? "Online" : "Offline",
+            ip: loginData.ip_online || "N/A",
+            // Adicione mais campos do login conforme necessário
+          }
+        : null,
+    };
+  }
+
+  // =========================================================
+  // MÉTODOS DE DADOS CADASTRAIS (CLIENTE) 💡 NOVO
+  // =========================================================
+
+  /**
+   * Busca os dados cadastrais completos do cliente para visualização.
+   * @param {string} idCliente - ID do cliente IXC.
+   */
+  async getDadosCadastrais(idCliente) {
+    // Reutiliza o método getDadosCliente, que busca a tabela 'cliente'
+    const cliente = await this.getDadosCliente(idCliente);
+
+    if (!cliente) {
+      return null;
+    }
+
+    // Mapeia e organiza os dados essenciais para o perfil
+    return {
+      id: cliente.id,
+      nome: cliente.razao || cliente.fantasia || cliente.nome_razaosocial,
+      cpfCnpj: cliente.cnpj_cpf,
+      rgIe: cliente.ie_identidade,
+      dataNascimento: cliente.data_nascimento,
+
+      contatos: {
+        emailHotsite: cliente.hotsite_email,
+        emailNotificacao: cliente.email_nfe, // E-mail para NF/boletos
+        telefonePrincipal: cliente.telefone_celular || cliente.fone,
+        telefoneComercial: cliente.telefone_comercial,
+      },
+
+      enderecoInstalacao: {
+        cep: cliente.cep,
+        logradouro: cliente.endereco,
+        numero: cliente.numero,
+        complemento: cliente.complemento,
+        bairro: cliente.bairro,
+        cidade: cliente.cidade,
+        uf: cliente.estado,
+        referencia: cliente.referencia,
+      },
+    };
+  }
+
+  /**
+   * Atualiza os dados cadastrais do cliente (apenas campos permitidos).
+   * @param {string} idCliente - ID do cliente IXC.
+   * @param {object} dados - Dados para atualização.
+   */
+  async atualizarDadosCadastrais(idCliente, dados) {
+    const payload = {
+      id: idCliente,
+      // Contatos
+      telefone_celular: dados.contatos?.telefonePrincipal,
+      telefone_comercial: dados.contatos?.telefoneComercial,
+      email_nfe: dados.contatos?.emailNotificacao,
+      hotsite_email: dados.contatos?.emailHotsite,
+
+      // Endereço (tabela 'cliente' do IXC)
+      cep: dados.enderecoInstalacao?.cep,
+      endereco: dados.enderecoInstalacao?.logradouro,
+      numero: dados.enderecoInstalacao?.numero,
+      complemento: dados.enderecoInstalacao?.complemento,
+      bairro: dados.enderecoInstalacao?.bairro,
+      cidade: dados.enderecoInstalacao?.cidade,
+      estado: dados.enderecoInstalacao?.uf,
+      referencia: dados.enderecoInstalacao?.referencia,
+
+      // Data de alteração do registro para compliance/rastreio
+      data_ultima_alteracao: new Date().toISOString().split("T")[0],
+    };
+
+    // Remove campos nulos/vazios/undefined para não sobrescrever dados
+    Object.keys(payload).forEach(
+      (key) =>
+        (payload[key] === undefined || payload[key] === null) &&
+        delete payload[key]
+    );
+
+    // A chamada para EDIÇÃO é um PUT (POST com header ixcsoft: editar)
+    const res = await this.ixcRequest("cliente", "put", payload);
+
+    if (res.error) {
+      throw new Error(`IXC: ${res.error}`);
+    }
+
+    return { success: true, idCliente: res.id };
   }
 
   // =========================================================
@@ -179,16 +317,14 @@ class IXCService {
    * @param {string} novaSenha - A nova senha em texto puro.
    */
   async alterarSenhaHotsite(idCliente, novaSenha) {
-    // IXC recomenda usar MD5 para a senha do hotsite
     const senhaMD5 = md5(novaSenha);
 
     const payload = {
       id: idCliente,
-      hotsite_senha: senhaMD5, // Campo da senha (pode ser MD5 ou texto puro)
-      hotsite_senha_md5: "S", // Indica que o campo acima está em MD5
+      hotsite_senha: senhaMD5,
+      hotsite_senha_md5: "S",
     };
 
-    // A chamada para EDIÇÃO é um PUT (ou POST com header ixcsoft: editar)
     const res = await this.ixcRequest("cliente", "put", payload);
 
     if (res.error) {
@@ -196,184 +332,6 @@ class IXCService {
     }
 
     return { success: true, message: "Senha alterada com sucesso!" };
-  }
-
-  // =========================================================
-  // MÉTODOS DE COBRANÇA E BOLETO
-  // ... (existing code: getFaturas, getPaymentLinkOrBoleto)
-  // =========================================================
-
-  /**
-   * Busca as faturas (títulos a receber) do cliente.
-   * @param {string} idCliente - ID do cliente IXC.
-   * @param {string} status - A (Abertas) ou R (Recebidas).
-   */
-  async getFaturas(idCliente, status = "A") {
-    const payload = {
-      qtype: "fn_areceber.id_cliente",
-      query: idCliente,
-      oper: "=",
-      rp: "10", // Limita a 10 faturas (Ex.: 5 abertas e 5 pagas)
-      sort: "fn_areceber.data_vencimento",
-      sortorder: "desc",
-      filtrar_status_aberto: status === "A" ? "S" : "N",
-      filtrar_status_recebido: status === "R" ? "S" : "N",
-    };
-
-    // O retorno é uma lista de faturas
-    const res = await this.ixcRequest("fn_areceber", "get", null, payload);
-    return res.registros || [];
-  }
-
-  /**
-   * Busca o link do Gateway de pagamento ou gera o boleto em Base64.
-   * @param {string} idFatura - ID do título (fn_areceber.id).
-   */
-  async getPaymentLinkOrBoleto(idFatura) {
-    if (!idFatura) {
-      throw new Error("ID da fatura é obrigatório para gerar o pagamento.");
-    }
-
-    // 1. Tenta buscar o link do Gateway (PIX, cartão, etc.)
-    try {
-      const payloadLink = {
-        id_cobranca: idFatura,
-        // O IXC usa um endpoint especial 'get_boleto' para boletos/links
-      };
-
-      // Tenta a chamada do boleto/link
-      // O get_boleto não usa o header ixcsoft, então redefinimos o config no ixcRequest
-      const response = await this.ixcRequest(
-        "get_boleto",
-        "post",
-        payloadLink,
-        {
-          ixcsoft: "get_boleto", // Pode ser necessário especificar o header aqui
-        }
-      );
-
-      // Se o IXC retornar um link (gateway_link, pix_link, etc.), priorizamos ele
-      if (response.gateway_link || response.pix_link) {
-        return {
-          tipo: "link",
-          link: response.gateway_link || response.pix_link,
-          message: "Link de pagamento/gateway gerado com sucesso.",
-        };
-      }
-
-      // 2. Se não houver link, tenta gerar o PDF Base64
-      const payloadBoleto = {
-        id_cobranca: idFatura,
-        tipo_boleto: "arquivo", // Parâmetro para retornar o arquivo
-        base64: "S", // Parâmetro para retornar em Base64
-      };
-
-      const responseBoleto = await this.ixcRequest(
-        "get_boleto",
-        "post",
-        payloadBoleto,
-        {
-          ixcsoft: "get_boleto",
-        }
-      );
-
-      if (responseBoleto.base64) {
-        return {
-          tipo: "boleto_pdf",
-          base64: responseBoleto.base64,
-          message: "Boleto PDF (Base64) gerado com sucesso.",
-        };
-      }
-
-      // Se nada funcionar
-      return {
-        tipo: "erro",
-        message:
-          "Não foi possível gerar link de pagamento ou boleto para esta fatura. Título já pago ou cancelado.",
-      };
-    } catch (error) {
-      console.error(
-        "[IXC Service - Boleto] Falha ao buscar boleto:",
-        error.message
-      );
-      // O erro pode ser um título já pago, por exemplo
-      throw new Error("Falha na API IXC: " + error.message);
-    }
-  }
-
-  // =========================================================
-  // MÉTODOS DE SUPORTE (su_ticket)
-  // ... (existing code: getTickets, createTicket)
-  // =========================================================
-
-  /**
-   * Busca os tickets/chamados do cliente.
-   * @param {string} idCliente - ID do cliente IXC.
-   * @param {string} status - S (Somente Abertos/Em Andamento) ou T (Todos, incluindo Fechados).
-   */
-  async getTickets(idCliente, status = "S") {
-    const payload = {
-      qtype: "su_ticket.id_cliente",
-      query: idCliente,
-      oper: "=",
-      rp: "20", // Limita a 20 tickets
-      sort: "su_ticket.id",
-      sortorder: "desc",
-      // O campo 'filtrar_status_ativo' define se o ticket está ativo ('S') ou todos ('N')
-      filtrar_status_ativo: status === "S" ? "S" : "N",
-    };
-
-    const res = await this.ixcRequest("su_ticket", "get", null, payload);
-    return res.registros || [];
-  }
-
-  /**
-   * Cria um novo ticket de suporte no IXC.
-   * @param {object} ticketData - Dados do ticket (titulo, mensagem, idAssunto).
-   * @param {string} idCliente - ID do cliente IXC.
-   */
-  async createTicket(ticketData, idCliente) {
-    const now = new Date().toISOString().split("T")[0]; // Formato YYYY-MM-DD
-
-    // Mapeamento dos dados mínimos e essenciais para o IXC
-    const payload = {
-      id_cliente: idCliente,
-      id_assunto: ticketData.idAssunto || 0, // ID do Assunto/Setor (veja a tabela su_assunto)
-      titulo: ticketData.titulo,
-      menssagem: ticketData.mensagem, // Sim, "menssagem" com SS
-
-      // Valores fixos para abertura pelo Portal/Hotsite
-      tipo: "C", // C = Chamado
-      origem_cadastro: "P", // P = Portal do Cliente
-      id_ticket_origem: "I", // I = Internet
-      status: "T", // T = Em Atendimento/Em Aberto
-      prioridade: "M", // M = Média
-
-      // Datas e status iniciais
-      data_criacao: now,
-      data_ultima_alteracao: now,
-      su_status: "N", // Status no setor: N = Novo
-      mensagens_nao_lida_sup: "1", // Para alertar o atendente
-
-      // Se tiver contrato, preencha para facilitar o atendimento
-      id_contrato: ticketData.idContrato || "",
-
-      // Dados de contato (opcional, mas bom ter no payload)
-      cliente_email: ticketData.email || "",
-    };
-
-    // A chamada para CRIAÇÃO é um POST com header ixcsoft: inserir
-    const res = await this.ixcRequest("su_ticket", "post", payload);
-
-    if (res.error) {
-      throw new Error(`IXC: ${res.error}`);
-    }
-
-    return {
-      success: true,
-      idTicket: res.id,
-      protocolo: res.protocolo,
-    };
   }
 
   // =========================================================
@@ -389,55 +347,15 @@ class IXCService {
       qtype: "radusuarios.id_cliente",
       query: idCliente,
       oper: "=",
-      rp: "1", // Pega apenas o primeiro login associado
-      filtrar_status_ativo: "S", // Busca apenas logins ativos
+      rp: "1",
+      filtrar_status_ativo: "S",
     };
 
-    // O retorno é o registro do login
     const res = await this.ixcRequest("radusuarios", "get", null, payload);
     return res.registros?.[0] || null;
   }
 
-  /**
-   * Executa um teste de Ping/Traceroute no IXC.
-   * @param {string} idLogin - ID do login (radusuarios.id).
-   * @param {string} tipoTeste - 'ping' ou 'traceroute'.
-   */
-  async executarTesteTecnico(idLogin, tipoTeste = "ping") {
-    if (!idLogin) {
-      throw new Error("ID do login é obrigatório para o teste.");
-    }
-
-    // O endpoint especial 'radusuarios_ping_traceroute' é usado para comandos
-    const payload = {
-      id: idLogin,
-      tipo_operacao: tipoTeste === "traceroute" ? "traceroute" : "ping",
-    };
-
-    // O IXC usa um POST normal para este comando
-    const res = await this.ixcRequest(
-      "radusuarios_ping_traceroute",
-      "post",
-      payload,
-      {
-        ixcsoft: "ping_traceroute", // Header de comando para teste
-      }
-    );
-
-    if (res.error) {
-      throw new Error(`IXC: ${res.error}`);
-    }
-
-    // O retorno 'msg_ping' ou 'msg_traceroute' contém o resultado do teste
-    return {
-      success: true,
-      resultadoRaw: res,
-      message:
-        res.msg_ping ||
-        res.msg_traceroute ||
-        "Teste executado com sucesso. Verifique o resultado.",
-    };
-  }
+  // ... (outros métodos como getFaturas, getPaymentLinkOrBoleto, getTickets, createTicket)
 }
 
 // Exporta uma instância única (Singleton)

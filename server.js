@@ -17,8 +17,8 @@ const authRoutes = require("./src/routes/auth");
 const dashboardRoutes = require("./src/routes/dashboard");
 const financeiroRoutes = require("./src/routes/financeiro");
 const suporteRoutes = require("./src/routes/suporte");
-// 💡 NOVA ROTA
 const tecnicoRoutes = require("./src/routes/tecnico");
+const clienteRoutes = require("./src/routes/cliente");
 const { verifyToken } = require("./src/middleware/authMiddleware");
 
 // ----------------------------------------------------
@@ -35,7 +35,8 @@ app.use(cors()); // Permite requisições de outras origens (CORS)
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "API Gateway Online",
-    service: "Authentication, Dashboard, Financeiro, Suporte & Técnico Ready",
+    service:
+      "Authentication, Dashboard, Financeiro, Suporte, Técnico & Cliente Ready",
     ixc_url: process.env.IXC_API_URL,
     version: "v1",
     endpoints: [
@@ -45,9 +46,14 @@ app.get("/", (req, res) => {
       "GET /api/v1/financeiro/fatura/:id/pagamento (Protegida por JWT)",
       "GET /api/v1/suporte/tickets?status=abertos|todos (Protegida por JWT)",
       "POST /api/v1/suporte/ticket/abrir (Protegida por JWT)",
-      // 💡 NOVOS
       "POST /api/v1/tecnico/teste (Protegida por JWT)",
       "POST /api/v1/tecnico/desbloqueio (Protegida por JWT)",
+      "POST /api/v1/cliente/alterar-senha (Protegida por JWT)",
+      "GET /api/v1/cliente/dados-login (Protegida por JWT)",
+      // 💡 NOVOS ENDPOINTS:
+      "GET /api/v1/cliente/detalhes-contrato (Protegida por JWT)",
+      "GET /api/v1/cliente/dados-cadastrais (Protegida por JWT)",
+      "PUT /api/v1/cliente/dados-cadastrais (Protegida por JWT - EDIÇÃO)",
     ],
   });
 });
@@ -57,8 +63,9 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/financeiro", financeiroRoutes);
 app.use("/api/v1/suporte", suporteRoutes);
-// 💡 INTEGRAÇÃO DA ROTA TÉCNICA
 app.use("/api/v1/tecnico", tecnicoRoutes);
+// 💡 INTEGRAÇÃO DA ROTA CLIENTE
+app.use("/api/v1/cliente", clienteRoutes);
 
 // ----------------------------------------------------
 // 4. INICIA O SERVIDOR
@@ -67,6 +74,6 @@ app.listen(PORT, () => {
   console.log(`\n==============================================`);
   console.log(`🚀 API Gateway IXC rodando na porta ${PORT}`);
   console.log(`🔗 Conectado à API IXC: ${process.env.IXC_API_URL}`);
-  console.log(`✅ Fluxo Técnico (Testes/Desbloqueio) prontos.`);
+  console.log(`✅ Fluxos de Perfil e Contrato prontos.`);
   console.log(`==============================================\n`);
 });
