@@ -53,9 +53,10 @@ class IXCService {
 
     let senhaCorreta = false;
     if (cliente.hotsite_senha_md5 === "S") {
-      senhaCorreta = cliente.hotsite_senha === md5(senha);
+      senhaComparada = md5(senha);
+      senhaCorreta = cliente.hotsite_senha === senhaComparada;
     } else {
-      senhaCorreta = cliente.hotsite_senha === senha;
+      senhaCorreta = cliente.hotsite_senha.trim() === senha;
     }
 
     if (!senhaCorreta) {
