@@ -273,7 +273,7 @@ class IXCService {
       rp: "20", // Limita a 20 tickets
       sort: "su_ticket.id",
       sortorder: "desc",
-      // O campo 'su_status' define se o ticket está ativo ('S') ou todos ('T')
+      // O campo 'filtrar_status_ativo' define se o ticket está ativo ('S') ou todos ('N')
       filtrar_status_ativo: status === "S" ? "S" : "N",
     };
 
@@ -313,7 +313,6 @@ class IXCService {
       id_contrato: ticketData.idContrato || "",
 
       // Dados de contato (opcional, mas bom ter no payload)
-      // O IXC geralmente pega do cadastro do cliente, mas é bom enviar
       cliente_email: ticketData.email || "",
     };
 
@@ -328,6 +327,69 @@ class IXCService {
       success: true,
       idTicket: res.id,
       protocolo: res.protocolo,
+    };
+  }
+
+  // =========================================================
+  // MÉTODOS DE TESTE TÉCNICO
+  // =========================================================
+
+  /**
+   * Busca o login do cliente na tabela radusuarios.
+   * @param {string} idCliente - ID do cliente IXC.
+   */
+  async getLoginDoCliente(idCliente) {
+    const payload = {
+      qtype: "radusuarios.id_cliente",
+      query: idCliente,
+      oper: "=",
+      rp: "1", // Pega apenas o primeiro login associado
+      filtrar_status_ativo: "S", // Busca apenas logins ativos
+    };
+
+    // O retorno é o registro do login
+    const res = await this.ixcRequest("radusuarios", "get", null, payload);
+    return res.registros?.[0] || null;
+  }
+
+  /**
+   * Executa um teste de Ping/Traceroute no IXC.
+   * @param {string} idLogin - ID do login (radusuarios.id).
+   * @param {string} tipoTeste - 'ping' ou 'traceroute'.
+   */
+  async executarTesteTecnico(idLogin, tipoTeste = "ping") {
+    if (!idLogin) {
+      throw new Error("ID do login é obrigatório para o teste.");
+    }
+
+    // O endpoint especial 'radusuarios_ping_traceroute' é usado para comandos
+    const payload = {
+      id: idLogin,
+      tipo_operacao: tipoTeste === "traceroute" ? "traceroute" : "ping",
+    };
+
+    // O IXC usa um POST normal para este comando
+    const res = await this.ixcRequest(
+      "radusuarios_ping_traceroute",
+      "post",
+      payload,
+      {
+        ixcsoft: "ping_traceroute", // Header de comando para teste
+      }
+    );
+
+    if (res.error) {
+      throw new Error(`IXC: ${res.error}`);
+    }
+
+    // O retorno 'msg_ping' ou 'msg_traceroute' contém o resultado do teste
+    return {
+      success: true,
+      resultadoRaw: res,
+      message:
+        res.msg_ping ||
+        res.msg_traceroute ||
+        "Teste executado com sucesso. Verifique o resultado.",
     };
   }
 }
