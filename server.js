@@ -1,37 +1,32 @@
 // src/server.js
 // ===========================================================
 // SERVIDOR FIBERNET - VERSÃO FINAL CORRIGIDA E OTIMIZADA
-// CORS 100% FUNCIONAL COM VERCEL + RENDER
 // ===========================================================
 
 // Carrega variáveis de ambiente (como PORT, JWT_SECRET, etc.)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
+const rateLimit = require("express-rate-limit"); // 💡 ESTE É O MÓDULO FALTANDO
 const bodyParser = require("body-parser");
 
 // =========================================================
 // IMPORTS DE SERVIÇOS E MIDDLEWARE
 // =========================================================
-// 💡 Verifique se o arquivo 'instabilidadeScheduler.js' existe no caminho './cron/'
 const {
   startScheduler,
   stopScheduler,
 } = require("./cron/instabilidadeScheduler");
-// 💡 Verifique se o arquivo 'authMiddleware.js' existe no caminho './middleware/'
 const { verifyToken } = require("./middleware/authMiddleware");
 
 // =========================================================
 // IMPORTS DE ROTAS
-// 💡 VERIFIQUE CAPITALIZAÇÃO (Case-Sensitivity)
-// Se seu arquivo se chama 'Dashboard.js', mude para require("./routes/Dashboard")
 // =========================================================
 const speedtestRoute = require("./routes/speedtest");
 const instabilidadeRoutes = require("./routes/instabilidade");
 const authRoutes = require("./routes/auth");
 const financeiroRoutes = require("./routes/financeiro");
-const dashboardRoutes = require("./routes/dashboard"); // Caminho que estava com erro
+const dashboardRoutes = require("./routes/dashboard");
 const chatbotRoutes = require("./routes/chatbot");
 
 // Importa o Controller CRUD genérico
@@ -94,11 +89,10 @@ app.use(express.json());
 
 // =========================================================
 // ROTAS
-// O prefixo /api/v1 é usado para versionamento
 // =========================================================
 
 // Rotas de Autenticação (sem JWT) - EXIGEM CORPO DA REQUISIÇÃO
-app.use("/api/v1/auth", authRoutes); // Ex: /api/v1/auth/login
+app.use("/api/v1/auth", authRoutes);
 
 // Middleware de autenticação JWT para todas as rotas abaixo
 app.use(verifyToken);
@@ -111,9 +105,9 @@ app.use("/api/v1/instabilidade", instabilidadeRoutes);
 app.use("/api/v1/chatbot", chatbotRoutes);
 
 // Rotas de CRUD Genérico (APIs mais perigosas)
-app.get("/api/v1/data/:entity", crudController.listRecords); // GET /api/v1/data/cliente
-app.post("/api/v1/data/:entity/:action", crudController.manageRecord); // POST /api/v1/data/cliente/inserir
-app.delete("/api/v1/data/:entity/:id", crudController.deleteRecord); // DELETE /api/v1/data/cliente/1
+app.get("/api/v1/data/:entity", crudController.listRecords);
+app.post("/api/v1/data/:entity/:action", crudController.manageRecord);
+app.delete("/api/v1/data/:entity/:id", crudController.deleteRecord);
 
 // =========================================================
 // INICIALIZAÇÃO DO SERVIDOR
@@ -163,8 +157,8 @@ function shutdown() {
 }
 
 // Interceptadores de Sinais (para o Render/Linux)
-process.on("SIGTERM", shutdown); // Sinal de encerramento
-process.on("SIGINT", shutdown); // Ctrl+C
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 // Interceptadores de Erros Críticos (para evitar que o servidor caia)
 process.on("uncaughtException", (err) => {
