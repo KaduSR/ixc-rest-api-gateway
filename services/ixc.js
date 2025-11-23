@@ -53,13 +53,12 @@ if (res.fail() || !cliente) {
 
 // 2. Lógica de verificação de senha (mantida localmente)
 let senhaCorreta = false;
-if (cliente.hotsite_senha_md5 === "S") {
+if (cliente.hotsite_senha_md5 === "N") {
   senhaCorreta = cliente.hotsite_senha === md5(senha);
 } else {
-  // 🚨 CORREÇÃO APLICADA: Usar .trim() para remover espaços invisíveis
+  // 🚨 CORREÇÃO FINAL: Limpar a senha do IXC com .trim()
   senhaCorreta = cliente.hotsite_senha.trim() === senha;
 }
-
 if (!senhaCorreta) {
   return null;
 }
