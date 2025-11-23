@@ -131,8 +131,23 @@ class IXCService {
   }
 
   // =========================================================
-  // MÉTODOS DE DADOS DO CLIENTE (PARA DASHBOARD)
+  // MÉTODOS DE DADOS DO CLIENTE (PARA DASHBOARD E PERFIL)
   // =========================================================
+
+  /**
+   * Busca os dados completos do cliente.
+   * @param {string} idCliente - ID do cliente IXC.
+   */
+  async getDadosCliente(idCliente) {
+    const payload = {
+      qtype: "cliente.id",
+      query: idCliente,
+      oper: "=",
+      rp: "1",
+    };
+    const res = await this.ixcRequest("cliente", "get", null, payload);
+    return res.registros?.[0] || null;
+  }
 
   /**
    * Busca os contratos ativos do cliente.
@@ -153,6 +168,40 @@ class IXCService {
     const res = await this.ixcRequest("cliente_contrato", "get", null, payload);
     return res.registros?.[0] || null;
   }
+
+  // =========================================================
+  // MÉTODOS DE ALTERAÇÃO DE SENHA (CENTRAL DO ASSINANTE)
+  // =========================================================
+
+  /**
+   * Altera a senha do hotsite do cliente.
+   * @param {string} idCliente - ID do cliente IXC.
+   * @param {string} novaSenha - A nova senha em texto puro.
+   */
+  async alterarSenhaHotsite(idCliente, novaSenha) {
+    // IXC recomenda usar MD5 para a senha do hotsite
+    const senhaMD5 = md5(novaSenha);
+
+    const payload = {
+      id: idCliente,
+      hotsite_senha: senhaMD5, // Campo da senha (pode ser MD5 ou texto puro)
+      hotsite_senha_md5: "S", // Indica que o campo acima está em MD5
+    };
+
+    // A chamada para EDIÇÃO é um PUT (ou POST com header ixcsoft: editar)
+    const res = await this.ixcRequest("cliente", "put", payload);
+
+    if (res.error) {
+      throw new Error(`IXC: ${res.error}`);
+    }
+
+    return { success: true, message: "Senha alterada com sucesso!" };
+  }
+
+  // =========================================================
+  // MÉTODOS DE COBRANÇA E BOLETO
+  // ... (existing code: getFaturas, getPaymentLinkOrBoleto)
+  // =========================================================
 
   /**
    * Busca as faturas (títulos a receber) do cliente.
@@ -175,10 +224,6 @@ class IXCService {
     const res = await this.ixcRequest("fn_areceber", "get", null, payload);
     return res.registros || [];
   }
-
-  // =========================================================
-  // MÉTODOS DE COBRANÇA E BOLETO
-  // =========================================================
 
   /**
    * Busca o link do Gateway de pagamento ou gera o boleto em Base64.
@@ -258,6 +303,7 @@ class IXCService {
 
   // =========================================================
   // MÉTODOS DE SUPORTE (su_ticket)
+  // ... (existing code: getTickets, createTicket)
   // =========================================================
 
   /**
@@ -331,7 +377,7 @@ class IXCService {
   }
 
   // =========================================================
-  // MÉTODOS DE TESTE TÉCNICO
+  // MÉTODOS DE TESTE TÉCNICO E DADOS DE LOGIN
   // =========================================================
 
   /**
