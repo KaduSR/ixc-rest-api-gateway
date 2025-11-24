@@ -8,6 +8,8 @@ export type Login = {
     sinal_ultimo_atendimento: string;
     tempo_conectado: string;
     id_contrato: number;
+    upload_atual: string; // Adicionado
+    download_atual: string; // Adicionado
     // Adicione outros campos relevantes para o login, se houver
 };
 

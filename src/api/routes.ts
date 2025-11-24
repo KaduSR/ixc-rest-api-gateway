@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import Ixc from '../../src/index';
 import { verifyToken } from '../../src/middleware/authMiddleware';
 import { DashboardData } from '../../types';
+import { OntInfo } from '../../src/resources/ont/types'; // Import OntInfo type
+import { TicketCreatePayload } from '../../src/resources/tickets/types'; // Import TicketCreatePayload type
 
 export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: DashboardData, MOCKED_CONSUMPTION_HISTORY: any) => {
     const router = Router();
@@ -75,16 +77,38 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
             const logins = await ixc.logins.listar({ id_cliente: ID_CLIENTE });
             const IDS_LOGINS = logins.map(l => l.id);
 
-            // Passo 3: Módulo de Consumo de Internet (Mockado por enquanto)
-            const consumoInternet = {
-                total: 'Mocked Total Consumption',
-                diario: 'Mocked Daily Consumption',
-                mensal: 'Mocked Monthly Consumption',
+            // Passo 3: Módulo de Consumo de Internet
+            let consumoInternet: Consumo = {
+                total_download_bytes: 0,
+                total_upload_bytes: 0,
+                history: { daily: [], monthly: [] }
             };
+
+            if (logins.length > 0) {
+                // Fetch consumption for each login and aggregate
+                const allConsumoPromises = logins.map(login => ixc.consumo.getConsumoCompleto(login));
+                const allConsumoResults = await Promise.all(allConsumoPromises);
+
+                consumoInternet = allConsumoResults.reduce((acc, currentConsumo) => {
+                    acc.total_download_bytes += currentConsumo.total_download_bytes;
+                    acc.total_upload_bytes += currentConsumo.total_upload_bytes;
+                    // For history, a simple concatenation for now. More sophisticated merging might be needed.
+                    acc.history.daily = acc.history.daily.concat(currentConsumo.history.daily);
+                    acc.history.monthly = acc.history.monthly.concat(currentConsumo.history.monthly);
+                    return acc;
+                }, { total_download_bytes: 0, total_upload_bytes: 0, history: { daily: [], monthly: [] } });
+            }
 
             // Passo 4.1: Buscar Títulos (Faturas)
             const faturas = await ixc.financeiro.listar({ id_cliente: ID_CLIENTE });
             const IDS_FATURAS = faturas.map(f => f.id);
+
+            // Passo 4.4: Buscar Ordens de Serviço
+            const ordensServico = await ixc.ordensServico.listarOrdensServico(ID_CLIENTE);
+
+            // Passo 4.5: Buscar Informações da ONT para cada login
+            const ontInfoPromises = logins.map(login => ixc.ont.listarOntInfo(login.id));
+            const allOntInfo = (await Promise.all(ontInfoPromises)).flat(); // Flatten array of arrays
 
             // Passo 4.2: Gerar PIX (Mockado por enquanto)
             const pixData = IDS_FATURAS.length > 0 ? `Mocked PIX for Fatura ${IDS_FATURAS[0]}` : 'No PIX generated';
@@ -102,6 +126,8 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
                 cadastral: {
                     contratos,
                     logins,
+                    ordensServico,
+                    ontInfo: allOntInfo, // Add ontInfo here
                 },
                 consumoInternet,
                 financeiro: {
@@ -132,24 +158,43 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
                 ixc.contratos.buscarContratosPorIdCliente(id),
                 ixc.financeiro.listar({ id_cliente: id }),
                 ixc.logins.listar({ id_cliente: id }),
+                ixc.ordensServico.listarOrdensServico(id),
+                ixc.ont.listarOntInfo(id), // Add this line
             ]));
 
             const results = await Promise.all(promises);
 
-            const dashboardData = results.reduce((acc, [cliente, contratos, faturas, logins]) => {
+            const dashboardData: DashboardData = results.reduce((acc, [cliente, contratos, faturas, logins, ordensServico, ontInfo]) => { // Add ontInfo here
                 acc.clientes.push({ id: cliente.id, nome: cliente.razao, endereco: `${cliente.endereco}, ${cliente.numero}` });
                 contratos.forEach(c => acc.contratos.push({ id: c.id, plano: c.descricao_aux_plano_venda, status: c.status, pdf_link: `/contrato/${c.id}` }));
                 faturas.forEach(f => acc.faturas.push({ id: f.id, vencimento: f.data_vencimento, valor: f.valor, status: f.status === 'A' ? 'aberto' : 'pago', pix_code: f.pix_txid, linha_digitavel: f.linha_digitavel }));
                 logins.forEach(l => acc.logins.push({ id: l.id, login: l.login, status: l.online === 'S' ? 'online' : 'offline', sinal_ont: l.sinal_ultimo_atendimento, uptime: l.tempo_conectado, contrato_id: l.id_contrato }));
+                ordensServico.forEach(os => acc.ordensServico.push(os));
+                ontInfo.forEach(ont => acc.ontInfo.push(ont)); // Add this line
                 return acc;
             }, {
-                clientes: [], contratos: [], faturas: [], logins: [], notas: [],
-                consumo: { // Consumo ainda é mockado pois não há endpoint no SDK
-                    total_download_bytes: 580 * 1024 * 1024 * 1024,
-                    total_upload_bytes: 290 * 1024 * 1024 * 1024,
-                    history: MOCKED_CONSUMPTION_HISTORY
+                clientes: [], contratos: [], faturas: [], logins: [], notas: [], ordensServico: [], ontInfo: [], // Initialize ontInfo array
+                consumo: { // Initialize with empty consumption
+                    total_download_bytes: 0,
+                    total_upload_bytes: 0,
+                    history: { daily: [], monthly: [] }
                 }
-            } as any);
+            });
+
+            // Fetch and aggregate consumption for all logins after collecting them
+            const allLogins = dashboardData.logins;
+            if (allLogins.length > 0) {
+                const allConsumoPromises = allLogins.map((login: any) => ixc.consumo.getConsumoCompleto(login));
+                const allConsumoResults = await Promise.all(allConsumoPromises);
+
+                dashboardData.consumo = allConsumoResults.reduce((acc, currentConsumo) => {
+                    acc.total_download_bytes += currentConsumo.total_download_bytes;
+                    acc.total_upload_bytes += currentConsumo.total_upload_bytes;
+                    acc.history.daily = acc.history.daily.concat(currentConsumo.history.daily);
+                    acc.history.monthly = acc.history.monthly.concat(currentConsumo.history.monthly);
+                    return acc;
+                }, { total_download_bytes: 0, total_upload_bytes: 0, history: { daily: [], monthly: [] } });
+            }
 
             res.json(dashboardData);
 
@@ -219,6 +264,46 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
         } catch (error) {
             console.error(`Erro na ação ${action} para login ${loginId}:`, error);
             res.status(500).json({ error: `Falha ao executar a ação: ${action}` });
+        }
+    });
+
+    // Nova Rota para Imprimir Nota
+    router.get('/nota/:id/imprimir', verifyToken, async (req: any, res) => {
+        if (req.user.isDev) return res.status(200).send('Mocked PDF Content (DEV Mode)');
+
+        const { id } = req.params;
+        try {
+            const nota = await ixc.notas.imprimirNota(parseInt(id, 10), 'S');
+            if (nota && nota.base64_document) {
+                const pdfBuffer = Buffer.from(nota.base64_document, 'base64');
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `inline; filename=nota-${id}.pdf`);
+                res.send(pdfBuffer);
+            } else {
+                res.status(404).json({ error: 'Nota não encontrada ou documento não disponível.' });
+            }
+        } catch (error) {
+            console.error('Erro ao imprimir nota:', error);
+            res.status(500).json({ error: 'Erro interno do servidor ao imprimir nota.' });
+        }
+    });
+
+    // Nova Rota para Criar Ticket
+    router.post('/ticket/create', verifyToken, async (req: any, res) => {
+        if (req.user.isDev) return res.json({ message: 'Ticket criado com sucesso! (Modo DEV)', id: 'DEV-TICKET-123' });
+
+        const ticketPayload: TicketCreatePayload = req.body;
+        // Basic validation
+        if (!ticketPayload.id_cliente || !ticketPayload.titulo || !ticketPayload.menssagem) {
+            return res.status(400).json({ error: 'id_cliente, titulo e menssagem são obrigatórios para criar um ticket.' });
+        }
+
+        try {
+            const result = await ixc.tickets.criarTicket(ticketPayload);
+            res.status(201).json({ message: 'Ticket criado com sucesso!', ticket: result });
+        } catch (error) {
+            console.error('Erro ao criar ticket:', error);
+            res.status(500).json({ error: 'Erro interno do servidor ao criar ticket.' });
         }
     });
 
