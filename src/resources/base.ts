@@ -71,7 +71,7 @@ export abstract class QueryBase {
                 }
             }
             
-            if (contentType && contentType.indexOf('application/json') !== -1) {
+            if (contentType && (contentType.indexOf('application/json') !== -1 || contentType.indexOf('text/x-json') !== -1)) {
                 return response.text().then(text => text ? JSON.parse(text) : {});
             } else {
                 const text = await response.text();
