@@ -44,8 +44,8 @@ const DEV_DASHBOARD_DATA: DashboardData = {
         { id: 4, documento: 'DOC4', data_emissao: '01/05/2025', data_vencimento: '01/06/2025', valor: '99.90', status: 'A', linha_digitavel: '', pix_txid: '', boleto: '#', id_cliente: 300 },
     ],
     logins: [
-        { id: 1, login: 'cliente@fibra', online: 'S', id_contrato: 101, id_cliente: 7, upload_atual: '10000000000', download_atual: '50000000000' },
-        { id: 2, login: 'escritorio@fibra', online: 'N', id_contrato: 102, id_cliente: 300, upload_atual: '0', download_atual: '0' },
+        { id: 1, login: 'cliente@fibra', online: 'S', sinal_ultimo_atendimento: '-20 dBm', tempo_conectado: '15d 4h', id_contrato: 101, id_cliente: 7, upload_atual: '10000000000', download_atual: '50000000000' },
+        { id: 2, login: 'escritorio@fibra', online: 'N', sinal_ultimo_atendimento: '', tempo_conectado: '0d 0h', id_contrato: 102, id_cliente: 300, upload_atual: '0', download_atual: '0' },
     ],
     notas: [],
     ordensServico: [], // Initialize as empty array
