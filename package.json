@@ -5,10 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "start:api": "ts-node-dev api/index.ts",
     "dev": "ts-node-dev api/index.ts",
+    "build": "tsc",
+    "start": "node dist/api/index.js",
     "prepare": "npm run build",
-    "build": "microbundle --tsconfig tsconfig.json --no-sourcemap",
     "docs": "typedoc",
     "test": "jest",
     "test:watch": "jest --watch",
