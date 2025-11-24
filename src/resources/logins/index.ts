@@ -28,7 +28,7 @@ export class Logins extends QueryBase {
             qtype: `radusuarios.${key}`,
             query: String(value),
             oper,
-            page,
+            page: page.toString(),
             sortname: `radusuarios.${String(sortAttr)}`,
             sortorder,
         };
@@ -61,7 +61,7 @@ export class Logins extends QueryBase {
             qtype: 'radusuarios.id',
             query: String(id),
             oper: '=',
-            page: 1,
+            page: '1',
             sortname: 'radusuarios.id',
             sortorder: 'asc'
         });

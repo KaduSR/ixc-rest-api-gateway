@@ -30,7 +30,7 @@ export class Financeiros extends QueryBase {
             qtype: `fn_areceber.${key}`,
             query: String(value),
             oper,
-            page,
+            page: page.toString(),
             sortname: `fn_areceber.${String(sortAttr)}`,
             sortorder,
         };

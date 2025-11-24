@@ -7,8 +7,12 @@ import { DashboardData } from '../../types';
 export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: DashboardData, MOCKED_CONSUMPTION_HISTORY: any) => {
     const router = Router();
 
+    router.get('/', (req, res) => {
+        res.send('API is running');
+    });
+
     // Rota de Login com Unificação de Contas
-    router.post('/api/login', async (req, res) => {
+    router.post('/login', async (req, res) => {
         const { email, password } = req.body;
 
         // Modo DEV
@@ -41,8 +45,80 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
         }
     });
 
+    // Nova Rota para o Fluxo de Dados Completo
+    router.post('/full-data', async (req, res) => {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+        }
+
+        try {
+            // Passo 1.1: Buscar Cliente
+            const clientesIniciais = await ixc.clientes.filtrarClientes({ hotsite_email: email });
+            const clienteInicial = clientesIniciais?.[0];
+
+            // Passo 1.2: Validar Senha
+            if (!clienteInicial || clienteInicial.senha !== password) {
+                return res.status(401).json({ error: 'Credenciais inválidas' });
+            }
+
+            const ID_CLIENTE = clienteInicial.id;
+            const SENHA_API = clienteInicial.senha; // Assuming SENHA_API is the same as hotsite password for now
+            const CPF = clienteInicial.cnpj_cpf;
+
+            // Passo 2.1: Buscar Contratos
+            const contratos = await ixc.contratos.buscarContratosPorIdCliente(ID_CLIENTE);
+            const IDS_CONTRATOS = contratos.map(c => c.id);
+
+            // Passo 2.2: Buscar Logins (RADUsuarios)
+            const logins = await ixc.logins.listar({ id_cliente: ID_CLIENTE });
+            const IDS_LOGINS = logins.map(l => l.id);
+
+            // Passo 3: Módulo de Consumo de Internet (Mockado por enquanto)
+            const consumoInternet = {
+                total: 'Mocked Total Consumption',
+                diario: 'Mocked Daily Consumption',
+                mensal: 'Mocked Monthly Consumption',
+            };
+
+            // Passo 4.1: Buscar Títulos (Faturas)
+            const faturas = await ixc.financeiro.listar({ id_cliente: ID_CLIENTE });
+            const IDS_FATURAS = faturas.map(f => f.id);
+
+            // Passo 4.2: Gerar PIX (Mockado por enquanto)
+            const pixData = IDS_FATURAS.length > 0 ? `Mocked PIX for Fatura ${IDS_FATURAS[0]}` : 'No PIX generated';
+
+            // Passo 4.3: Gerar Boleto (Mockado por enquanto)
+            const boletoData = IDS_FATURAS.length > 0 ? `Mocked Boleto for Fatura ${IDS_FATURAS[0]}` : 'No Boleto generated';
+
+
+            res.json({
+                auth: {
+                    ID_CLIENTE,
+                    SENHA_API,
+                    CPF,
+                },
+                cadastral: {
+                    contratos,
+                    logins,
+                },
+                consumoInternet,
+                financeiro: {
+                    faturas,
+                    pixData,
+                    boletoData,
+                },
+            });
+
+        } catch (error) {
+            console.error('Erro no fluxo de dados completo:', error);
+            res.status(500).json({ error: 'Erro interno do servidor durante o fluxo de dados completo' });
+        }
+    });
+
     // Rota de Dashboard Unificado
-    router.get('/api/dashboard', verifyToken, async (req: any, res) => {
+    router.get('/dashboard', verifyToken, async (req: any, res) => {
         // Modo DEV
         if (req.user.isDev) {
             return res.json(DEV_DASHBOARD_DATA);
@@ -85,7 +161,7 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
 
     // --- Rotas de Ação ---
 
-    router.post('/api/trocar-senha', verifyToken, async (req: any, res) => {
+    router.post('/trocar-senha', verifyToken, async (req: any, res) => {
         if (req.user.isDev) return res.json({ message: 'Senha alterada com sucesso! (Modo DEV)' });
 
         const { newPassword } = req.body;
@@ -102,7 +178,7 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
         }
     });
 
-    router.post('/api/desbloqueio-confianca', verifyToken, async (req: any, res) => {
+    router.post('/desbloqueio-confianca', verifyToken, async (req: any, res) => {
         if (req.user.isDev) return res.json({ message: 'Desbloqueio solicitado com sucesso! (Modo DEV)' });
         
         // Supondo que o desbloqueio seja para o primeiro contrato encontrado
@@ -119,8 +195,7 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
         }
     });
 
-
-    router.post('/api/logins/:id/:action', verifyToken, async (req: any, res) => {
+    router.post('/logins/:id/:action', verifyToken, async (req: any, res) => {
         if (req.user.isDev) return res.json({ message: 'Ação executada com sucesso! (Modo DEV)' });
 
         const { id, action } = req.params;
@@ -136,10 +211,6 @@ export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: D
                 case 'desconectar':
                     await ixc.logins.desconectarSessao(loginId);
                     result = { message: 'Sessão desconectada com sucesso!' };
-                    break;
-                case 'diagnostico':
-                    const diag = await ixc.logins.obterDiagnostico(loginId);
-                    result = { message: 'Diagnóstico concluído.', consumo: { download: diag.download_atual, upload: diag.upload_atual } };
                     break;
                 default:
                     return res.status(400).json({ error: 'Ação inválida.' });

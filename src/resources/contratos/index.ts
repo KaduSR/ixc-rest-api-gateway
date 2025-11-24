@@ -28,11 +28,11 @@ export class Contratos extends QueryBase {
         const value = attr[key];
 
         const response = await this.request<{ registros: Contrato[] }>(resourceName, {
-            qtype: `cliente_contrato.${key}`,
+            qtype: `contrato.${key}`,
             query: value as string,
             oper: oper,
-            page: page,
-            sortname: `cliente_contrato.${sortAttr as string}`,
+            page: page.toString(),
+            sortname: `contrato.${sortAttr as string}`,
             sortorder: sortorder
         });
 
@@ -47,7 +47,7 @@ export class Contratos extends QueryBase {
             qtype: 'cliente_contrato.id',
             query: id.toString(),
             oper: '=',
-            page: 1,
+            page: '1',
             sortname: 'cliente_contrato.id',
             sortorder: 'asc',
         };
@@ -64,7 +64,7 @@ export class Contratos extends QueryBase {
             qtype: 'cliente_contrato.id_cliente',
             query: id.toString(),
             oper: '=',
-            page: 1,
+            page: '1',
             sortname: 'cliente_contrato.id',
             sortorder: 'asc'
         }

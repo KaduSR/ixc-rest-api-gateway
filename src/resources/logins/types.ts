@@ -1,20 +1,17 @@
-import { ResponseBody } from "../base";
+export type LoginAttrs = 'id' | 'login' | 'id_cliente' | 'online' | 'sinal_ultimo_atendimento' | 'tempo_conectado' | 'id_contrato';
 
-export declare type Login = {
+export type Login = {
     id: number;
-    id_cliente: number;
     login: string;
-    ativo: 'S' | 'N';
-    online: 'S' | 'N'; // IXC usa 'S' ou 'SS' para online, 'N' para offline
-    mac: string;
-    ip: string;
+    id_cliente: number;
+    online: 'S' | 'N';
     sinal_ultimo_atendimento: string;
     tempo_conectado: string;
-    download_atual: string;
-    upload_atual: string;
     id_contrato: number;
-    [key: string]: any; // Permite outros campos
+    // Adicione outros campos relevantes para o login, se houver
 };
 
-export declare type LoginResponse = ResponseBody<Login>;
-export declare type LoginAttrs = keyof Login;
+export type LoginResponse = {
+    registros: Login[];
+    total: number;
+};

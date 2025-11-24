@@ -29,7 +29,7 @@ export class Clientes extends QueryBase {
             qtype: `cliente.${key}`,
             query: value as string,
             oper: oper,
-            page: page,
+            page: page.toString(),
             sortname: `cliente.${sortAttr}`,
             sortorder: sortorder,
         });
@@ -45,7 +45,7 @@ export class Clientes extends QueryBase {
             qtype: 'cliente.cnpj_cpf',
             query: cpfCnpj,
             oper: '=',
-            page: 1,
+            page: '1',
             sortname: 'cliente.cnpj_cpf',
             sortorder: 'asc'
         }
@@ -62,7 +62,7 @@ export class Clientes extends QueryBase {
             qtype: 'cliente.id',
             query: id.toString(),
             oper: '=',
-            page: 1,
+            page: '1',
             sortname: 'cliente.id',
             sortorder: 'asc'
         }

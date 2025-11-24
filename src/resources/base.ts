@@ -24,8 +24,8 @@ export declare type QueryBody = {
     qtype: string,
     query: string,
     oper: '>' | '<' | '=' | 'like',
-    page: number,
-    rp?: number,
+    page: string,
+    rp?: string,
     sortname: string,
     sortorder: 'desc' | 'asc',
 }
@@ -43,7 +43,7 @@ export abstract class QueryBase {
         this.baseUrl = config.baseUrl;
         // FIX: Replaced Buffer with btoa for broader compatibility (available in modern Node.js and browsers)
         // and to resolve the type error in environments without explicit Node.js types.
-        const token = `Basic ${btoa(this.apiKey)}`;
+        const token = `Basic ${this.apiKey}`;
         this.commonHeaders = {
             'Content-Type': 'application/json',
             'Authorization': token,
@@ -53,11 +53,23 @@ export abstract class QueryBase {
     private async performRequest<T>(endpoint: string, options: RequestInit): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
         return fetch(url, options).then(response => {
+            const contentType = response.headers.get('content-type');
             if (!response.ok) {
-                return response.json().then(err => { throw new Error(err.message || 'API Error') });
+                if (contentType && contentType.indexOf('application/json') !== -1) {
+                    return response.json().then(err => { throw new Error(err.message || 'API Error') });
+                } else {
+                    throw new Error(response.statusText);
+                }
             }
-            // Handle cases with empty response body
-            return response.text().then(text => text ? JSON.parse(text) : {});
+            
+            if (contentType && contentType.indexOf('application/json') !== -1) {
+                return response.text().then(text => text ? JSON.parse(text) : {});
+            } else {
+                return response.text().then(text => {
+                    console.error('A API IXC retornou uma resposta inesperada (não-JSON):', text);
+                    throw new Error('A API IXC retornou uma resposta inesperada.');
+                });
+            }
         });
     }
 
