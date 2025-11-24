@@ -13,7 +13,7 @@ export class TicketsResource extends QueryBase {
      * @returns A resposta da API após a criação do ticket.
      */
     public async criarTicket(payload: TicketCreatePayload): Promise<TicketCreateResponse> {
-        const response = await this.request<any>(this.resourceName, payload, 'post');
+        const response = await this.create<TicketCreatePayload, any>(this.resourceName, payload);
         // Assumindo que a API retorna o ID do ticket criado diretamente ou em um campo 'id'
         return { id: response.id || response.registros?.[0]?.id || response.retorno_id };
     }

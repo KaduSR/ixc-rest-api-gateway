@@ -4,6 +4,7 @@ import Ixc from '../../src/index';
 import { verifyToken } from '../../src/middleware/authMiddleware';
 import { DashboardData } from '../../types';
 import { OntInfo } from '../../src/resources/ont/types'; // Import OntInfo type
+import { Consumo } from '../resources/consumo/types'; // Import Consumo type
 import { TicketCreatePayload } from '../../src/resources/tickets/types'; // Import TicketCreatePayload type
 
 export const createRouter = (ixc: Ixc, JWT_SECRET: string, DEV_DASHBOARD_DATA: DashboardData, MOCKED_CONSUMPTION_HISTORY: any) => {

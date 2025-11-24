@@ -1,12 +1,18 @@
+import { Cliente } from './src/resources/clientes/types';
+import { Contrato } from './src/resources/contratos/types';
+import { Financeiro } from './src/resources/financeiro/types';
+import { Login } from './src/resources/logins/types';
+import { Consumo } from './src/resources/consumo/types';
+import { OrdemServico } from './src/resources/ordens_servico/types';
+import { OntInfo } from './src/resources/ont/types';
+
 export type DashboardData = {
-    clientes: { id: number; nome: string; endereco: string; }[];
-    contratos: { id: number; plano: string; status: string; pdf_link: string; }[];
-    faturas: { id: string; vencimento: string; valor: string; status: string; pix_code?: string; linha_digitavel?: string; }[];
-    logins: { id: string; login: string; status: string; sinal_ont: string; uptime: string; contrato_id: number; }[];
-    notas: any[];
-    consumo: {
-        total_download_bytes: number;
-        total_upload_bytes: number;
-        history: any;
-    };
+    clientes: Cliente[];
+    contratos: Contrato[];
+    faturas: Financeiro[];
+    logins: Login[];
+    notas: any[]; // Manter como any[] por enquanto, pois não há um tipo de listagem de notas
+    ordensServico: OrdemServico[];
+    ontInfo: OntInfo[];
+    consumo: Consumo;
 };
