@@ -1,7 +1,7 @@
 import { QueryBase, QueryBody } from "../base";
 import { Financeiro, FinanceiroAttrs, FinanceiroResponse } from "./types";
 
-const resourceName = "v1/fn_areceber";
+const resourceName = "fn_areceber";
 
 /**
  * Classe para gerenciar o financeiro (contas a receber).

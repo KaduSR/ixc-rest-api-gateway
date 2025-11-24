@@ -41,8 +41,6 @@ export abstract class QueryBase {
     constructor(config: Config) {
         this.apiKey = config.token;
         this.baseUrl = config.baseUrl;
-        // FIX: Replaced Buffer with btoa for broader compatibility (available in modern Node.js and browsers)
-        // and to resolve the type error in environments without explicit Node.js types.
         const token = `Basic ${this.apiKey}`;
         this.commonHeaders = {
             'Content-Type': 'application/json',

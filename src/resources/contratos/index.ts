@@ -1,7 +1,7 @@
 import { QueryBase, QueryBody } from "../base";
 import { Contrato, ContratoAttrs, ContratoResponse } from "./types";
 
-const resourceName = "v1/cliente_contrato";
+const resourceName = "cliente_contrato";
 
 
 /**

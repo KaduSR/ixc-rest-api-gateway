@@ -1,7 +1,7 @@
 import { QueryBase, QueryBody } from "../base";
 import { Login, LoginAttrs, LoginResponse } from "./types";
 
-const resourceName = "v1/radusuarios";
+const resourceName = "radusuarios";
 
 /**
  * Classe para gerenciar logins de conexão (radusuarios).

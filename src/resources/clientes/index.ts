@@ -1,7 +1,7 @@
 import { QueryBase, QueryBody } from "../base";
 import { Cliente, ClienteAttrs, ClienteResponse } from "./types";
 
-const resourceName = "v1/cliente";
+const resourceName = "cliente";
 
 /**
  * Classe para gerenciar clientes
