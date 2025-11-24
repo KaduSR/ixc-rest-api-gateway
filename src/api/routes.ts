@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import Ixc from '../../src/index';
 import { verifyToken } from '../../src/middleware/authMiddleware';
 import { DashboardData } from '../../types';

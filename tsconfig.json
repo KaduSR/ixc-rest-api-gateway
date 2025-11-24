@@ -4,18 +4,8 @@
     "paths": {
       "@tests/*": ["tests/*"]
     },
-    "types": ["jest", "./types.d.ts"],
-    "moduleResolution": "node",
-    "target": "ES2015",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "outDir": "./dist",
-    "allowJs": true
+    "types": ["jest"]
   },
-  "include": ["src/**/*", "api/index.ts"],
+  "include": ["src/**/*", "api/index.ts", "types.ts"],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts"]
 }
