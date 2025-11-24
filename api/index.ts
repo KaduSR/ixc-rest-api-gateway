@@ -24,32 +24,32 @@ const ixc = new Ixc({
 
 // === DADOS MOCKADOS PARA MODO DEV ===
 const MOCKED_CONSUMPTION_HISTORY = {
-    daily: Array.from({ length: 7 }, (_, i) => ({ label: `Dia ${i + 1}`, download: Math.random() * 25, upload: Math.random() * 10 })),
-    weekly: Array.from({ length: 4 }, (_, i) => ({ label: `Sem ${i + 1}`, download: Math.random() * 150, upload: Math.random() * 60 })),
-    monthly: Array.from({ length: 6 }, (_, i) => ({ label: `Mês ${i + 1}`, download: Math.random() * 600, upload: Math.random() * 250 })),
-    annual: Array.from({ length: 12 }, (_, i) => ({ label: `Mês ${i + 1}`, download: Math.random() * 600, upload: Math.random() * 250 })),
+    daily: Array.from({ length: 7 }, (_, i) => ({ data: `2025-11-${18 + i}`, download_bytes: Math.random() * 25 * 1024 * 1024 * 1024, upload_bytes: Math.random() * 10 * 1024 * 1024 * 1024 })),
+    monthly: Array.from({ length: 6 }, (_, i) => ({ mes_ano: `2025-${11 - i}`, download_bytes: Math.random() * 600 * 1024 * 1024 * 1024, upload_bytes: Math.random() * 250 * 1024 * 1024 * 1024 })),
 };
 
 const DEV_DASHBOARD_DATA: DashboardData = {
     clientes: [
-        { id: 7, nome: 'Cliente Principal Dev', endereco: 'Rua dos Testes, 123' },
-        { id: 300, nome: 'Cliente Secundário Dev', endereco: 'Avenida da Simulação, 456' },
+        { id: 7, razao: 'Cliente Principal Dev', endereco: 'Rua dos Testes, 123', cnpj_cpf: '12345678900', fantasia: 'Principal Dev', fone: '11999999999', email: 'dev@fibernet.com' },
+        { id: 300, razao: 'Cliente Secundário Dev', endereco: 'Avenida da Simulação, 456', cnpj_cpf: '00987654321', fantasia: 'Secundário Dev', fone: '11888888888', email: 'dev2@fibernet.com' },
     ],
     contratos: [
-        { id: 101, plano: 'Fibra 500 Mega - Casa', status: 'A', pdf_link: '#' },
-        { id: 102, plano: 'Fibra 300 Mega - Escritório', status: 'S', pdf_link: '#' },
+        { id: 101, descricao_aux_plano_venda: 'Fibra 500 Mega - Casa', status: 'A', desbloqueio_confianca: 'N', id_cliente: 7, login: 'login101' },
+        { id: 102, descricao_aux_plano_venda: 'Fibra 300 Mega - Escritório', status: 'S', desbloqueio_confianca: 'N', id_cliente: 300, login: 'login102' },
     ],
     faturas: [
-        { id: 'inv_1', vencimento: '10/08/2025', valor: '99.90', status: 'aberto', pix_code: 'PIX_CODE_1', linha_digitavel: '12345...' },
-        { id: 'inv_2', vencimento: '10/07/2025', valor: '99.90', status: 'pago' },
-        { id: 'inv_3', vencimento: '10/08/2025', valor: '79.90', status: 'aberto', pix_code: 'PIX_CODE_2', linha_digitavel: '67890...' },
-        { id: 'inv_4', vencimento: '01/06/2025', valor: '99.90', status: 'vencido' },
+        { id: 1, vencimento: '10/08/2025', valor: '99.90', status: 'A', pix_txid: 'PIX_CODE_1', linha_digitavel: '12345...', documento: 'DOC1', data_emissao: '01/08/2025', id_cliente: 7, boleto: '#' },
+        { id: 2, vencimento: '10/07/2025', valor: '99.90', status: 'B', documento: 'DOC2', data_emissao: '01/07/2025', id_cliente: 7, boleto: '#' },
+        { id: 3, vencimento: '10/08/2025', valor: '79.90', status: 'A', pix_txid: 'PIX_CODE_2', linha_digitavel: '67890...', documento: 'DOC3', data_emissao: '01/08/2025', id_cliente: 300, boleto: '#' },
+        { id: 4, vencimento: '01/06/2025', valor: '99.90', status: 'A', documento: 'DOC4', data_emissao: '01/05/2025', id_cliente: 300, boleto: '#' },
     ],
     logins: [
-        { id: 'rad_1', login: 'cliente@fibra', status: 'online', sinal_ont: '-21.5 dBm', uptime: '15d 4h', contrato_id: 101 },
-        { id: 'rad_2', login: 'escritorio@fibra', status: 'offline', sinal_ont: '', uptime: '0d 0h', contrato_id: 102 },
+        { id: 1, login: 'cliente@fibra', online: 'S', sinal_ont: '-21.5 dBm', uptime: '15d 4h', id_contrato: 101, id_cliente: 7, upload_atual: '10000000000', download_atual: '50000000000' },
+        { id: 2, login: 'escritorio@fibra', online: 'N', sinal_ont: '', uptime: '0d 0h', id_contrato: 102, id_cliente: 300, upload_atual: '0', download_atual: '0' },
     ],
     notas: [],
+    ordensServico: [], // Initialize as empty array
+    ontInfo: [], // Initialize as empty array
     consumo: {
         total_download_bytes: 750 * 1024 * 1024 * 1024, // 750 GB
         total_upload_bytes: 320 * 1024 * 1024 * 1024, // 320 GB
