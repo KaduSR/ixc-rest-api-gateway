@@ -17,5 +17,5 @@
     "allowJs": true
   },
   "include": ["src/**/*", "api/index.ts"],
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "src/**/tests/*"]
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts"]
 }
