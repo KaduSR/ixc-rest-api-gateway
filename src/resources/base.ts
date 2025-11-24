@@ -52,30 +52,40 @@ export abstract class QueryBase {
 
     private async performRequest<T>(endpoint: string, options: RequestInit): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
-        return fetch(url, options).then(response => {
+        console.log('IXC API Request URL:', url);
+        console.log('IXC API Request Options:', options);
+
+        return fetch(url, options).then(async response => {
+            console.log('IXC API Response Status:', response.status);
+            console.log('IXC API Response Status Text:', response.statusText);
+            console.log('IXC API Response Headers:', response.headers);
+
             const contentType = response.headers.get('content-type');
             if (!response.ok) {
                 if (contentType && contentType.indexOf('application/json') !== -1) {
-                    return response.json().then(err => { throw new Error(err.message || 'API Error') });
+                    const err = await response.json();
+                    console.error('IXC API Error Response (JSON):', err);
+                    throw new Error(err.message || 'API Error');
                 } else {
-                    throw new Error(response.statusText);
+                    const text = await response.text();
+                    console.error('IXC API Error Response (Non-JSON):', text);
+                    throw new Error(response.statusText || 'API Error');
                 }
             }
             
             if (contentType && contentType.indexOf('application/json') !== -1) {
                 return response.text().then(text => text ? JSON.parse(text) : {});
             } else {
-                return response.text().then(text => {
-                    console.error('A API IXC retornou uma resposta inesperada (não-JSON):', text);
-                    throw new Error('A API IXC retornou uma resposta inesperada.');
-                });
+                const text = await response.text();
+                console.error('A API IXC retornou uma resposta inesperada (não-JSON):', text);
+                throw new Error('A API IXC retornou uma resposta inesperada.');
             }
         });
     }
 
     public async request<T>(endpoint: string, query: QueryBody): Promise<T> {
         return this.performRequest<T>(endpoint, {
-            method: "POST", // IXC uses POST for GET operations
+            method: "POST", // IXC uses POST for GET operations, as GET with body is not supported by fetch
             headers: { ...this.commonHeaders, 'ixcsoft': 'listar' },
             body: JSON.stringify(query),
         });
