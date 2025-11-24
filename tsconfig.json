@@ -6,15 +6,16 @@
     },
     "types": ["jest"],
     "moduleResolution": "node",
-    "target": "ES2015", 
-    "module": "commonjs", 
-    "strict": true, 
-    "esModuleInterop": true, 
-    "skipLibCheck": true, 
-    "forceConsistentCasingInFileNames": true, 
+    "target": "ES2015",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "outDir": "./dist",
     "allowJs": true
   },
-  "include": ["src/**/*", "tests/**/*", "api/index.ts"]
+  "include": ["src/**/*", "api/index.ts"],
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "src/**/tests/*"]
 }
