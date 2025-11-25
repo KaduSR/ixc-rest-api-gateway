@@ -156,6 +156,29 @@ export const ixcService = {
     return resp.data.registros || [];
   },
 
+  async buscarClientePorEmail(email: string) {
+    if (!IXC_BASE) return null;
+    const url = `${IXC_BASE}/cliente`;
+    const body = {
+      qtype: "cliente.hotsite_email",
+      query: email,
+      oper: "=",
+      page: "1",
+      rp: "1",
+      sortname: "cliente.id",
+      sortorder: "desc"
+    };
+    const resp = await axios.post(url, body, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: IXC_AUTH,
+        ixcsoft: "listar",
+      },
+    });
+    const registros = resp.data.registros || [];
+    return registros[0] || null;
+  },
+
   async getConsumoCompleto(login: any) {
     // O endpoint real do consumo do IXC pode diferir. Aqui deixamos mock ou fallback
     if (!IXC_BASE) {
