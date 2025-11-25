@@ -2,7 +2,7 @@ export interface DashboardLogin {
   raw: number;
   id: number;
   login: string;
-  status: string;
+  online: string;
   uptime?: string;
   contrato_id?: number;
   download_atual?: string;
