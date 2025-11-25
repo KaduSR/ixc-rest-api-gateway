@@ -16,7 +16,6 @@ if (!getBaseUrl() || !IXC_TOKEN) {
   );
 }
 
-// Helper para gerar os headers de autenticação
 const getHeaders = () => {
   const token = IXC_TOKEN?.includes("Basic") ? IXC_TOKEN : `Basic ${IXC_TOKEN}`;
   return {
@@ -26,7 +25,6 @@ const getHeaders = () => {
   };
 };
 
-// Helper genérico para requisições POST ao IXC
 const fetchIxc = async (endpoint: string, payload: any) => {
   const baseUrl = getBaseUrl();
   if (!baseUrl) return [];
@@ -43,9 +41,6 @@ const fetchIxc = async (endpoint: string, payload: any) => {
 };
 
 export const ixcService = {
-  /**
-   * Busca cliente por email (Login)
-   */
   async buscarClientePorEmail(email: string): Promise<Cliente | null> {
     const registros = await fetchIxc("cliente", {
       qtype: "cliente.hotsite_email",
@@ -137,8 +132,8 @@ export const ixcService = {
   },
 
   /**
-   * Busca o consumo completo (Totais + Histórico)
-   * Agora implementado para buscar dados reais.
+   * IMPLEMENTAÇÃO REAL DO HISTÓRICO DE CONSUMO
+   * Baseada nos JSONs fornecidos: radusuarios_consumo_d e radusuarios_consumo_m
    */
   async getConsumoCompleto(login: any) {
     const loginId = login.id;
@@ -150,14 +145,15 @@ export const ixcService = {
       };
     }
 
-    // 1. Buscar totais acumulados do próprio objeto login
+    // 1. Totais acumulados do cadastro do login
     const totalDownload = parseFloat(login.download_atual || "0");
     const totalUpload = parseFloat(login.upload_atual || "0");
 
     // 2. Buscar históricos em paralelo
+    // Usamos 'id_login' como qtype conforme seu exemplo
     const [dailyRes, monthlyRes] = await Promise.all([
       fetchIxc("radusuarios_consumo_d", {
-        qtype: "radusuarios.id",
+        qtype: "id_login",
         query: String(loginId),
         oper: "=",
         page: "1",
@@ -166,27 +162,29 @@ export const ixcService = {
         sortorder: "desc",
       }),
       fetchIxc("radusuarios_consumo_m", {
-        qtype: "radusuarios.id",
+        qtype: "id_login",
         query: String(loginId),
         oper: "=",
         page: "1",
         rp: "12", // Últimos 12 meses
-        sortname: "mes_ano",
+        sortname: "data", // Geralmente a data de referência do mês
         sortorder: "desc",
       }),
     ]);
 
-    // 3. Mapear respostas
+    // 3. Mapear respostas (convertendo campos do IXC para nosso padrão)
+    // IXC retorna: consumo (download), consumo_upload (upload), data
     const daily = dailyRes.map((d: any) => ({
-      data: d.data,
-      download_bytes: parseFloat(d.download_bytes || "0"),
-      upload_bytes: parseFloat(d.upload_bytes || "0"),
+      data: d.data ? d.data.split(" ")[0] : d.data, // "2025-11-24 00:00:00" -> "2025-11-24"
+      download_bytes: parseFloat(d.consumo || "0"),
+      upload_bytes: parseFloat(d.consumo_upload || "0"),
     }));
 
     const monthly = monthlyRes.map((m: any) => ({
-      mes_ano: m.mes_ano,
-      download_bytes: parseFloat(m.download_bytes || "0"),
-      upload_bytes: parseFloat(m.upload_bytes || "0"),
+      // Extrai o "YYYY-MM" da data para usar como label
+      mes_ano: m.data ? m.data.substring(0, 7) : "",
+      download_bytes: parseFloat(m.consumo || "0"),
+      upload_bytes: parseFloat(m.consumo_upload || "0"),
     }));
 
     return {
