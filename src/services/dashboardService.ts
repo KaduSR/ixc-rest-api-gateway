@@ -3,33 +3,43 @@ import { cacheGet, cacheSet } from "./cache/supabaseClient";
 import { Gemini } from "./ai/gemini";
 import { DashboardData } from "../types/dashboard/DashboardData";
 
-// Função auxiliar para formatar bytes
+// Função auxiliar para formatar bytes (mantida)
 function formatBytes(bytes: number, decimals = 2): string {
   if (!+bytes) return "0 Bytes";
-
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
-
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 export class DashboardService {
   constructor(private ixc = ixcService) {}
 
-  async gerarDashboard(clientIds: number[]): Promise<DashboardData> {
-    // Tenta buscar do cache primeiro
+  // Alteração: Adicionado parâmetro clientIp
+  async gerarDashboard(
+    clientIds: number[],
+    clientIp: string = ""
+  ): Promise<DashboardData> {
     const cacheKey = `dashboard:${clientIds.join(",")}`;
-    const cached = await cacheGet<DashboardData>(cacheKey);
-    if (cached) return cached;
 
-    // Coleta de dados paralela por cliente
+    // Nota: O cache deve ser usado com cuidado aqui se o IP público mudar muito,
+    // mas como o IP público é do cliente acessando, ele não deve ser cacheado globalmente
+    // dentro do objeto dashboard se múltiplos usuários usarem o mesmo ID (raro).
+    const cached = await cacheGet<DashboardData>(cacheKey);
+    if (cached) {
+      // Se pegou do cache, injeta o IP público atual da requisição nos logins
+      // para garantir que o "Meu IP" esteja sempre atualizado
+      cached.logins = cached.logins.map((l) => ({
+        ...l,
+        ip_publico: clientIp,
+      }));
+      return cached;
+    }
+
     const promises = clientIds.map(async (id) => {
       try {
         const cliente = await this.ixc.buscarClientesPorId(id);
-
         if (!cliente) return null;
 
         const contratos = await this.ixc.buscarContratosPorIdCliente(id);
@@ -52,7 +62,6 @@ export class DashboardService {
 
     const results = await Promise.all(promises);
 
-    // Estrutura inicial do Dashboard
     const dashboard: DashboardData = {
       clientes: [],
       contratos: [],
@@ -64,14 +73,12 @@ export class DashboardService {
       consumo: {
         total_download_bytes: 0,
         total_upload_bytes: 0,
-        // Inicializa os campos formatados
         total_download: "0 Bytes",
         total_upload: "0 Bytes",
         history: { daily: [], monthly: [] },
       },
     };
 
-    // Processamento dos resultados
     for (const r of results) {
       if (!r || !r.cliente) continue;
 
@@ -110,9 +117,13 @@ export class DashboardService {
           id: l.id,
           login: l.login,
           status: l.online === "S" ? "online" : "offline",
-          sinal_ont: l.sinal_ultimo_atendimento,
           uptime: l.tempo_conectado,
           contrato_id: l.id_contrato,
+          download_atual: l.download_atual,
+          upload_atual: l.upload_atual,
+          // --- NOVOS CAMPOS ---
+          ip_privado: l.ip || "Não atribuído", // IP vindo do cadastro do IXC
+          ip_publico: clientIp, // IP detectado da requisição
         })
       );
 
@@ -120,23 +131,19 @@ export class DashboardService {
       dashboard.ontInfo.push(...r.ontInfo);
     }
 
-    // Cálculo de consumo agregado
+    // ... (cálculo de consumo mantém-se igual) ...
     const allLogins = dashboard.logins;
     if (allLogins.length > 0) {
       const consumoPromises = allLogins.map((ln: any) =>
         this.ixc.getConsumoCompleto(ln)
       );
-
       const consumoResults = await Promise.all(consumoPromises);
-
       for (const c of consumoResults) {
         dashboard.consumo.total_download_bytes += c.total_download_bytes || 0;
         dashboard.consumo.total_upload_bytes += c.total_upload_bytes || 0;
         dashboard.consumo.history.daily.push(...(c.history?.daily || []));
         dashboard.consumo.history.monthly.push(...(c.history?.monthly || []));
       }
-
-      // APLICAÇÃO DA FORMATAÇÃO AQUI
       dashboard.consumo.total_download = formatBytes(
         dashboard.consumo.total_download_bytes
       );
@@ -145,7 +152,6 @@ export class DashboardService {
       );
     }
 
-    // Geração de Insights com IA
     try {
       const ai = await Gemini.analyzeDashboard(dashboard);
       dashboard.notas = [{ id: "ai-insights", ...ai } as any];
@@ -153,7 +159,6 @@ export class DashboardService {
       dashboard.notas = [];
     }
 
-    // Salva no cache
     await cacheSet(cacheKey, dashboard, 60);
 
     return dashboard;
