@@ -6,8 +6,8 @@ jest.mock('../../base');
 
 describe('Contratos', () => {
     let instance: Contratos;
-    let mockRequest: jest.SpyInstance;
-    let mockUpdate: jest.SpyInstance;
+    let mockRequest: any;
+    let mockUpdate: any;
 
     beforeEach(() => {
         instance = new Contratos({
@@ -29,7 +29,7 @@ describe('Contratos', () => {
         it('deve chamar o método update com o payload correto', async () => {
             const contratoId = 456;
             await instance.desbloqueioConfianca(contratoId);
-            expect(mockUpdate).toHaveBeenCalledWith('v1/cliente_contrato', contratoId, { desbloqueio_confianca: 'S' });
+            expect(mockUpdate).toHaveBeenCalledWith('cliente_contrato', contratoId, { desbloqueio_confianca: 'S' });
         });
     });
 });

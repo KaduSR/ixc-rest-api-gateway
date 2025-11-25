@@ -63,7 +63,7 @@ export abstract class QueryBase {
                 if (contentType && contentType.indexOf('application/json') !== -1) {
                     const err = await response.json();
                     console.error('IXC API Error Response (JSON):', err);
-                    throw new Error(err.message || 'API Error');
+                    throw new Error((err as Error).message || 'API Error');
                 } else {
                     const text = await response.text();
                     console.error('IXC API Error Response (Non-JSON):', text);

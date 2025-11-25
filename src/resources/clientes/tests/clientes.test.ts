@@ -6,8 +6,8 @@ jest.mock('../../base');
 
 describe('Clientes', () => {
     let instance: Clientes;
-    let mockRequest: jest.SpyInstance;
-    let mockUpdate: jest.SpyInstance;
+    let mockRequest: any;
+    let mockUpdate: any;
 
     beforeEach(() => {
         instance = new Clientes({
@@ -31,7 +31,7 @@ describe('Clientes', () => {
             const novaSenha = 'newPassword123';
             await instance.alterarSenhaHotsite(clienteId, novaSenha);
 
-            expect(mockUpdate).toHaveBeenCalledWith('v1/cliente', clienteId, { senha: novaSenha });
+            expect(mockUpdate).toHaveBeenCalledWith('cliente', clienteId, { senha: novaSenha });
         });
     });
 });

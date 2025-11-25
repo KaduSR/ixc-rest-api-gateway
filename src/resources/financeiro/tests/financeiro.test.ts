@@ -9,7 +9,7 @@ jest.mock('../../base');
 describe('Financeiros', () => {
     // FIX: Updated type to use the renamed 'Financeiros' class.
     let instance: Financeiros;
-    let mockRequest: jest.SpyInstance;
+    let mockRequest: any;
 
     beforeEach(() => {
         // FIX: Updated instantiation to use the renamed 'Financeiros' class.
@@ -28,11 +28,11 @@ describe('Financeiros', () => {
         it('deve chamar a API com os parâmetros corretos para listar por cliente', async () => {
             await instance.listar({ id_cliente: 123 });
 
-            expect(mockRequest).toHaveBeenCalledWith('v1/fn_areceber', {
+            expect(mockRequest).toHaveBeenCalledWith('fn_areceber', {
                 qtype: 'fn_areceber.id_cliente',
                 query: '123',
                 oper: '=',
-                page: 1,
+                page: '1',
                 sortname: 'fn_areceber.id',
                 sortorder: 'desc',
             });
