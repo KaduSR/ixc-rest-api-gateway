@@ -12,9 +12,17 @@ export interface DashboardConsumoHistoryItem {
 export interface DashboardConsumo {
   total_download_bytes: number;
   total_upload_bytes: number;
+  // Novos campos formatados
+  total_download: string;
+  total_upload: string;
+
   history: {
     daily: DashboardConsumoHistoryItem[];
-    monthly: Array<{ mes_ano: string; download_bytes: number; upload_bytes: number }>;
+    monthly: Array<{
+      mes_ano: string;
+      download_bytes: number;
+      upload_bytes: number;
+    }>;
   };
 }
 

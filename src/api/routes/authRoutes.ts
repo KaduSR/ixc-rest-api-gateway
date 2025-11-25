@@ -11,40 +11,25 @@ router.post("/login", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Email e senha são obrigatórios" });
   }
 
-  // Bypass para ambiente de desenvolvimento (opcional, mantenha se usar)
-  if (email === "dev@fibernet.com" && password === "dev") {
-    const token = jwt.sign(
-      { ids: [7], email, isDev: true },
-      process.env.JWT_SECRET || "devsecret",
-      { expiresIn: "1d" }
-    );
-    return res.json({ token });
-  }
-
   try {
-    // 1. Busca os dados do cliente usando o TOKEN DE ADMIN do Gateway
+    // 1. Busca o cliente no IXC pelo email
     const cliente = await ixcService.buscarClientePorEmail(email);
 
-    // 2. Verifica se o cliente existe
+    // 2. Verifica se encontrou
     if (!cliente) {
-      return res
-        .status(401)
-        .json({ error: "Cliente não encontrado ou credenciais inválidas" });
+      return res.status(401).json({ error: "Cliente não encontrado" });
     }
 
-    // 3. Compara a senha enviada pelo usuário com a senha retornada do banco do IXC
-    // Nota: O campo padrão de senha do hotsite no IXC é 'senha'.
-    // Se o seu IXC usa um campo personalizado, altere 'cliente.senha' abaixo.
+    // 3. Valida a senha (o IXC retorna a senha do hotsite em texto plano no campo 'senha')
     if (cliente.senha !== password) {
-      return res.status(401).json({ error: "Credenciais inválidas" });
+      return res.status(401).json({ error: "Senha incorreta" });
     }
 
-    // 4. Se chegou aqui, a senha está correta. Gera o Token do seu Gateway.
+    // 4. Gera o token JWT
     const clientIds = [cliente.id];
-
     const token = jwt.sign(
       { ids: clientIds, email: cliente.email || email },
-      process.env.JWT_SECRET || "devsecret",
+      process.env.JWT_SECRET || "secret_padrao_seguro", // Use uma chave forte em produção
       { expiresIn: "1d" }
     );
 
@@ -58,9 +43,7 @@ router.post("/login", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Erro interno no login:", error);
-    return res
-      .status(500)
-      .json({ error: "Erro interno do servidor ao processar login" });
+    return res.status(500).json({ error: "Erro ao processar login" });
   }
 });
 

@@ -3,15 +3,21 @@
 
 export class Gemini {
   static async analyzeDashboard(input: any) {
-    // Aqui você deve chamar a API do Gemini 2.5 Flash usando a SDK/HTTP oficial
-    // Este é um mock/placeholder para desenvolvimento e testes.
-    // Retorna insights simples
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return {
+        insights: [],
+        summary: "Análise de IA não configurada. Adicione GEMINI_API_KEY ao .env",
+      };
+    }
+
+    // Placeholder for real Gemini API call
+    // You would use the apiKey to authenticate and send the 'input' data
+    console.log("Chamando API do Gemini (implementação pendente)...");
+
     return {
-      insights: [
-        { type: "consumo", message: "Clientes A, B com consumo acima da média." },
-        { type: "faturas", message: "2 faturas vencidas detectadas" }
-      ],
-      summary: "Análise mock gerada pelo módulo Gemini (stub)."
+      insights: [],
+      summary: "Análise de IA pendente de implementação.",
     };
   }
 }

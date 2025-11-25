@@ -6,4 +6,6 @@ export interface DashboardLogin {
   sinal_ont?: string;
   uptime?: string;
   contrato_id?: number;
+  download_atual?: string; // Novo
+  upload_atual?: string; // Novo
 }
