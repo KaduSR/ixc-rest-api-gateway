@@ -1,5 +1,4 @@
-# IXC REST API Gateway (projeto entregue por ChatGPT)
-
+# IXC REST API Gateway
 ## O que este repo contém
 - API Express em TypeScript
 - Rota `/api/dashboard` que agrega dados do IXC e retorna um `DashboardData`
@@ -18,7 +17,7 @@ IXC_BASE_URL=
 IXC_AUTH_BASIC=
 GEMINI_API_KEY=
 PORT=3333
-API_BASE_URL=https://api.centralfiber.online
+API_BASE_URL=
 ```
 
 ## Tabela `cache` (SQL)
