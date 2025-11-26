@@ -75,7 +75,7 @@ export class DashboardService {
         total_upload_bytes: 0,
         total_download: "0 Bytes",
         total_upload: "0 Bytes",
-        history: { daily: [], monthly: [] },
+        history: { daily: [], weekly: [], monthly: [] },
       },
     };
 
@@ -89,6 +89,7 @@ export class DashboardService {
         endereco: `${r.cliente.endereco || ""}${
           r.cliente.numero ? ", " + r.cliente.numero : ""
         }`,
+        cpn_cnpj: r.cliente.cnpj_cpf,
       });
 
       r.contratos.forEach((c: any) =>

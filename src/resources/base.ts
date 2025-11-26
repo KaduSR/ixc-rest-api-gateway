@@ -1,7 +1,7 @@
 /**
  * Configurações para autenticação e URL base da API.
  */
-type Config = {
+export type Config = {
     token: string,
     baseUrl: string,
 };
