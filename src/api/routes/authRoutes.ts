@@ -38,6 +38,7 @@ router.post("/login", async (req: Request, res: Response) => {
       user: {
         id: cliente.id,
         nome: cliente.razao || cliente.fantasia,
+        cpf_cnpj: cliente.cpf_cnpj,
         email: cliente.email,
       },
     });
