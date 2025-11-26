@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { ixcService } from "../../services/ixcService";
@@ -38,7 +39,7 @@ router.post("/login", async (req: Request, res: Response) => {
       user: {
         id: cliente.id,
         nome: cliente.razao || cliente.fantasia,
-        cpf_cnpj: cliente.cpf_cnpj,
+        cnpj_cpf: cliente.cnpj_cpf,
         email: cliente.email,
       },
     });

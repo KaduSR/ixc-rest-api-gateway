@@ -41,6 +41,20 @@ const fetchIxc = async (endpoint: string, payload: any) => {
 };
 
 export const ixcService = {
+  async buscarClientesPorCpf(cpfCnpj: string): Promise<Cliente[]> {
+    const cpfLimpo = cpfCnpj.replace(/[^\d]/g, "");
+
+    return (await fetchIxc("cliente", {
+      qtype: "cliente.cnpj_cpf",
+      query: cpfLimpo,
+      oper: "=",
+      page: "1",
+      rp: "100",
+      sortname: "cliente.id",
+      sortorder: "desc",
+    })) as Cliente[];
+  },
+
   async buscarClientePorEmail(email: string): Promise<Cliente | null> {
     const registros = await fetchIxc("cliente", {
       qtype: "cliente.hotsite_email",
@@ -141,7 +155,7 @@ export const ixcService = {
       return {
         total_download_bytes: 0,
         total_upload_bytes: 0,
-        history: { daily: [], monthly: [] },
+        history: { daily: [], weekly: [], monthly: [] },
       };
     }
 
@@ -157,9 +171,9 @@ export const ixcService = {
         query: String(loginId),
         oper: "=",
         page: "1",
-        rp: "30", // Últimos 30 dias
+        rp: "30", // Busca os últimos 30 dias (para diário)
         sortname: "data",
-        sortorder: "desc",
+        sortorder: "desc", // Vem do mais recente para o mais antigo
       }),
       fetchIxc("radusuarios_consumo_m", {
         qtype: "id_login",
@@ -173,24 +187,36 @@ export const ixcService = {
     ]);
 
     // 3. Mapear respostas (convertendo campos do IXC para nosso padrão)
-    // IXC retorna: consumo (download), consumo_upload (upload), data
-    const daily = dailyRes.map((d: any) => ({
-      data: d.data ? d.data.split(" ")[0] : d.data, // "2025-11-24 00:00:00" -> "2025-11-24"
-      download_bytes: parseFloat(d.consumo || "0"),
-      upload_bytes: parseFloat(d.consumo_upload || "0"),
-    }));
 
-    const monthly = monthlyRes.map((m: any) => ({
-      // Extrai o "YYYY-MM" da data para usar como label
-      mes_ano: m.data ? m.data.substring(0, 7) : "",
-      download_bytes: parseFloat(m.consumo || "0"),
-      upload_bytes: parseFloat(m.consumo_upload || "0"),
-    }));
+    // Processa Diário (30 dias)
+    // O reverse() coloca na ordem cronológica: [Dia 1, Dia 2 ... Dia 30]
+    // IXC retorna: consumo (download), consumo_upload (upload), data
+    const daily = dailyRes
+      .map((d: any) => ({
+        data: d.data ? d.data.split(" ")[0] : d.data, // "2025-11-24 00:00:00" -> "2025-11-24"
+        download_bytes: parseFloat(d.consumo || "0"),
+        upload_bytes: parseFloat(d.consumo_upload || "0"),
+      }))
+      .reverse();
+
+    // Processa Semanal (Extrai os últimos 7 dias do array daily já ordenado cronologicamente)
+    // Se tiver menos de 7 dias, pega tudo o que tiver.
+    const weekly = daily.slice(-7);
+
+    // Processa Mensal
+    const monthly = monthlyRes
+      .map((m: any) => ({
+        // Extrai o "YYYY-MM" da data para usar como label
+        mes_ano: m.data ? m.data.substring(0, 7) : "",
+        download_bytes: parseFloat(m.consumo || "0"),
+        upload_bytes: parseFloat(m.consumo_upload || "0"),
+      }))
+      .reverse(); // Ordena do mês mais antigo para o atual
 
     return {
       total_download_bytes: totalDownload,
       total_upload_bytes: totalUpload,
-      history: { daily, monthly },
+      history: { daily, weekly, monthly },
     };
   },
 };

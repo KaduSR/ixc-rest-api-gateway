@@ -17,7 +17,8 @@ export interface DashboardConsumo {
   total_upload: string;
 
   history: {
-    daily: DashboardConsumoHistoryItem[];
+    daily: DashboardConsumoHistoryItem[]; // Últimos 30 dias (ou o padrão que vier)
+    weekly: DashboardConsumoHistoryItem[]; // Últimos 7 dias
     monthly: Array<{
       mes_ano: string;
       download_bytes: number;
