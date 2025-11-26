@@ -116,8 +116,7 @@ export class DashboardService {
           raw: l.id,
           id: l.id,
           login: l.login,
-          s
-online: l.online === "S" ? "online" : "offline",
+          status: l.online === "S" ? "online" : "offline",
           uptime: l.tempo_conectado,
           contrato_id: l.id_contrato,
           download_atual: l.download_atual,
