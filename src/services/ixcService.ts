@@ -41,15 +41,17 @@ const fetchIxc = async (endpoint: string, payload: any) => {
 };
 
 export const ixcService = {
+  // ===============================================================
+  // CORREÇÃO: Removida a limpeza de CPF. Envia formatado.
+  // ===============================================================
   async buscarClientesPorCpf(cpfCnpj: string): Promise<Cliente[]> {
-    const cpfLimpo = cpfCnpj.replace(/[^\d]/g, "");
-
+    // O IXC espera "000.000.000-00", então enviamos direto sem limpar
     return (await fetchIxc("cliente", {
       qtype: "cliente.cnpj_cpf",
-      query: cpfLimpo,
+      query: cpfCnpj,
       oper: "=",
       page: "1",
-      rp: "100",
+      rp: "100", // Traz até 100 contratos do mesmo CPF
       sortname: "cliente.id",
       sortorder: "desc",
     })) as Cliente[];
@@ -147,7 +149,6 @@ export const ixcService = {
 
   /**
    * IMPLEMENTAÇÃO REAL DO HISTÓRICO DE CONSUMO
-   * Baseada nos JSONs fornecidos: radusuarios_consumo_d e radusuarios_consumo_m
    */
   async getConsumoCompleto(login: any) {
     const loginId = login.id;
@@ -159,59 +160,47 @@ export const ixcService = {
       };
     }
 
-    // 1. Totais acumulados do cadastro do login
     const totalDownload = parseFloat(login.download_atual || "0");
     const totalUpload = parseFloat(login.upload_atual || "0");
 
-    // 2. Buscar históricos em paralelo
-    // Usamos 'id_login' como qtype conforme seu exemplo
     const [dailyRes, monthlyRes] = await Promise.all([
       fetchIxc("radusuarios_consumo_d", {
         qtype: "id_login",
         query: String(loginId),
         oper: "=",
         page: "1",
-        rp: "30", // Busca os últimos 30 dias (para diário)
+        rp: "30",
         sortname: "data",
-        sortorder: "desc", // Vem do mais recente para o mais antigo
+        sortorder: "desc",
       }),
       fetchIxc("radusuarios_consumo_m", {
         qtype: "id_login",
         query: String(loginId),
         oper: "=",
         page: "1",
-        rp: "12", // Últimos 12 meses
-        sortname: "data", // Geralmente a data de referência do mês
+        rp: "12",
+        sortname: "data",
         sortorder: "desc",
       }),
     ]);
 
-    // 3. Mapear respostas (convertendo campos do IXC para nosso padrão)
-
-    // Processa Diário (30 dias)
-    // O reverse() coloca na ordem cronológica: [Dia 1, Dia 2 ... Dia 30]
-    // IXC retorna: consumo (download), consumo_upload (upload), data
     const daily = dailyRes
       .map((d: any) => ({
-        data: d.data ? d.data.split(" ")[0] : d.data, // "2025-11-24 00:00:00" -> "2025-11-24"
+        data: d.data ? d.data.split(" ")[0] : d.data,
         download_bytes: parseFloat(d.consumo || "0"),
         upload_bytes: parseFloat(d.consumo_upload || "0"),
       }))
       .reverse();
 
-    // Processa Semanal (Extrai os últimos 7 dias do array daily já ordenado cronologicamente)
-    // Se tiver menos de 7 dias, pega tudo o que tiver.
     const weekly = daily.slice(-7);
 
-    // Processa Mensal
     const monthly = monthlyRes
       .map((m: any) => ({
-        // Extrai o "YYYY-MM" da data para usar como label
         mes_ano: m.data ? m.data.substring(0, 7) : "",
         download_bytes: parseFloat(m.consumo || "0"),
         upload_bytes: parseFloat(m.consumo_upload || "0"),
       }))
-      .reverse(); // Ordena do mês mais antigo para o atual
+      .reverse();
 
     return {
       total_download_bytes: totalDownload,

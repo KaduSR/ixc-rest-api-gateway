@@ -13,20 +13,23 @@ export class Gemini {
     }
 
     try {
+      // CORREÇÃO: Usando o nome padrão estável.
+      // Se ainda der erro 404, troque para "gemini-pro"
       const model = this.genAI.getGenerativeModel({
         model: "gemini-1.5-flash",
       });
 
       // Prepara os dados para economizar tokens e focar no essencial
+      // Adicionado filtro para garantir que dados existam antes do map
       const context = {
-        financeiro: data.faturas
+        financeiro: (data.faturas || [])
           .slice(0, 3)
           .map((f) => ({ venc: f.vencimento, status: f.status })),
-        consumo: data.consumo.total_download,
-        chamados: data.ordensServico
+        consumo: data.consumo?.total_download || "0 GB",
+        chamados: (data.ordensServico || [])
           .slice(0, 3)
           .map((os) => ({ assunto: os.id_assunto, status: os.status })),
-        contrato: data.contratos.map((c) => c.plano),
+        contrato: (data.contratos || []).map((c) => c.plano),
       };
 
       const prompt = `
@@ -50,8 +53,9 @@ export class Gemini {
       return JSON.parse(cleanedText);
     } catch (error) {
       console.error("[Gemini] Erro na análise:", error);
+      // Retorna um objeto neutro para não quebrar o dashboard
       return {
-        summary: "Não foi possível gerar a análise no momento.",
+        summary: "Análise indisponível no momento.",
         insights: [],
       };
     }
