@@ -83,8 +83,8 @@ interface TicketPayload {
   id_cliente: string;
   titulo: string;
   menssagem: string;
-  id_setor?: number;
-  id_tipo?: number;
+  id_setor?: string;
+  id_tipo?: string;
   prioridade?: string;
   id_contrato?: string;
   id_login?: string;
