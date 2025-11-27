@@ -2,8 +2,11 @@ import "dotenv/config";
 import axios from "axios";
 import { Cliente } from "../resources/clientes/types";
 
-// Definição das URLs e Token
-const getBaseUrl = () => {
+// ============================================================================
+// CONFIGURAÇÃO E UTILITÁRIOS
+// ============================================================================
+
+const getBaseUrl = (): string => {
   const url = process.env.IXC_API_URL || process.env.IXC_BASE_URL || "";
   return url.endsWith("/") ? url.slice(0, -1) : url;
 };
@@ -25,38 +28,100 @@ const getHeaders = () => {
   };
 };
 
-const fetchIxc = async (endpoint: string, payload: any) => {
+/**
+ * Função auxiliar para realizar requisições ao IXC
+ */
+const fetchIxc = async (endpoint: string, payload: any): Promise<any[]> => {
   const baseUrl = getBaseUrl();
-  if (!baseUrl) return [];
+  if (!baseUrl) {
+    console.warn("Base URL do IXC não configurada");
+    return [];
+  }
 
   const url = `${baseUrl}/${endpoint}`;
 
   try {
     const resp = await axios.post(url, payload, { headers: getHeaders() });
     return resp.data.registros || [];
-  } catch (error: any) {
-    console.error(`Erro na requisição IXC (${endpoint}):`, error.message);
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Erro desconhecido";
+    console.error(`Erro na requisição IXC (${endpoint}):`, errorMessage);
     return [];
   }
 };
 
+// ============================================================================
+// TIPOS E INTERFACES
+// ============================================================================
+
+interface ConsumoHistory {
+  daily: ConsumoDaily[];
+  weekly: ConsumoDaily[];
+  monthly: ConsumoMonthly[];
+}
+
+interface ConsumoDaily {
+  data: string;
+  download_bytes: number;
+  upload_bytes: number;
+}
+
+interface ConsumoMonthly {
+  mes_ano: string;
+  download_bytes: number;
+  upload_bytes: number;
+}
+
+interface ConsumoCompleto {
+  total_download_bytes: number;
+  total_upload_bytes: number;
+  history: ConsumoHistory;
+}
+
+interface TicketPayload {
+  id_cliente: number;
+  assunto: string;
+  descricao: string;
+  id_setor?: number;
+  id_tipo?: number;
+  prioridade?: string;
+}
+
+interface TicketResponse {
+  id: number;
+  protocolo: string;
+  [key: string]: any;
+}
+
+// ============================================================================
+// SERVIÇO IXC
+// ============================================================================
+
 export const ixcService = {
-  // ===============================================================
-  // CORREÇÃO: Removida a limpeza de CPF. Envia formatado.
-  // ===============================================================
+  // ==========================================================================
+  // CLIENTES
+  // ==========================================================================
+
+  /**
+   * Busca clientes por CPF/CNPJ
+   * @param cpfCnpj - CPF ou CNPJ formatado (com pontos e traços)
+   */
   async buscarClientesPorCpf(cpfCnpj: string): Promise<Cliente[]> {
-    // O IXC espera "000.000.000-00", então enviamos direto sem limpar
     return (await fetchIxc("cliente", {
       qtype: "cliente.cnpj_cpf",
       query: cpfCnpj,
       oper: "=",
       page: "1",
-      rp: "100", // Traz até 100 contratos do mesmo CPF
+      rp: "100",
       sortname: "cliente.id",
       sortorder: "desc",
     })) as Cliente[];
   },
 
+  /**
+   * Busca cliente por email
+   */
   async buscarClientePorEmail(email: string): Promise<Cliente | null> {
     const registros = await fetchIxc("cliente", {
       qtype: "cliente.hotsite_email",
@@ -68,13 +133,13 @@ export const ixcService = {
       sortorder: "desc",
     });
 
-    if (registros && registros.length > 0) {
-      return registros[0] as Cliente;
-    }
-    return null;
+    return registros.length > 0 ? (registros[0] as Cliente) : null;
   },
 
-  async buscarClientesPorId(id: number) {
+  /**
+   * Busca cliente por ID
+   */
+  async buscarClientesPorId(id: number): Promise<any | null> {
     const registros = await fetchIxc("cliente", {
       qtype: "cliente.id",
       query: String(id),
@@ -84,10 +149,18 @@ export const ixcService = {
       sortname: "cliente.id",
       sortorder: "asc",
     });
+
     return registros[0] || null;
   },
 
-  async buscarContratosPorIdCliente(id_cliente: number) {
+  // ==========================================================================
+  // CONTRATOS E SERVIÇOS
+  // ==========================================================================
+
+  /**
+   * Busca contratos por ID do cliente
+   */
+  async buscarContratosPorIdCliente(id_cliente: number): Promise<any[]> {
     return await fetchIxc("cliente_contrato", {
       qtype: "cliente_contrato.id_cliente",
       query: String(id_cliente),
@@ -99,7 +172,14 @@ export const ixcService = {
     });
   },
 
-  async financeiroListar(id_cliente: number) {
+  // ==========================================================================
+  // FINANCEIRO
+  // ==========================================================================
+
+  /**
+   * Lista faturas e boletos do cliente
+   */
+  async financeiroListar(id_cliente: number): Promise<any[]> {
     return await fetchIxc("fn_areceber", {
       qtype: "fn_areceber.id_cliente",
       query: String(id_cliente),
@@ -111,7 +191,14 @@ export const ixcService = {
     });
   },
 
-  async loginsListar(id_cliente: number) {
+  // ==========================================================================
+  // LOGINS E CONEXÕES
+  // ==========================================================================
+
+  /**
+   * Lista logins (conexões) do cliente
+   */
+  async loginsListar(id_cliente: number): Promise<any[]> {
     return await fetchIxc("radusuarios", {
       qtype: "radusuarios.id_cliente",
       query: String(id_cliente),
@@ -123,19 +210,10 @@ export const ixcService = {
     });
   },
 
-  async ordensServicoListar(id_cliente: number) {
-    return await fetchIxc("su_oss_chamado", {
-      qtype: "su_oss_chamado.id_cliente",
-      query: String(id_cliente),
-      oper: "=",
-      page: "1",
-      rp: "20",
-      sortname: "su_oss_chamado.id",
-      sortorder: "desc",
-    });
-  },
-
-  async ontListar(id_login: number) {
+  /**
+   * Lista equipamentos ONT do login
+   */
+  async ontListar(id_login: number): Promise<any[]> {
     return await fetchIxc("radpop_radio_cliente_fibra", {
       qtype: "radpop_radio_cliente_fibra.id_login",
       query: String(id_login),
@@ -147,11 +225,98 @@ export const ixcService = {
     });
   },
 
+  // ==========================================================================
+  // ORDENS DE SERVIÇO E TICKETS
+  // ==========================================================================
+
   /**
-   * IMPLEMENTAÇÃO REAL DO HISTÓRICO DE CONSUMO
+   * Lista ordens de serviço do cliente
    */
-  async getConsumoCompleto(login: any) {
+  async ordensServicoListar(id_cliente: number): Promise<any[]> {
+    return await fetchIxc("su_oss_chamado", {
+      qtype: "su_oss_chamado.id_cliente",
+      query: String(id_cliente),
+      oper: "=",
+      page: "1",
+      rp: "20",
+      sortname: "su_oss_chamado.id",
+      sortorder: "desc",
+    });
+  },
+
+  /**
+   * Cria um novo ticket de atendimento
+   */
+  async criarTicket(payload: TicketPayload): Promise<TicketResponse> {
+    const baseUrl = getBaseUrl();
+    if (!baseUrl) {
+      throw new Error("IXC URL não configurada");
+    }
+
+    const url = `${baseUrl}/su_ticket`;
+
+    try {
+      const resp = await axios.post(url, payload, {
+        headers: getHeaders(),
+      });
+
+      return {
+        id: resp.data.id || resp.data.retorno_id || resp.data.protocolo,
+        protocolo: resp.data.protocolo,
+        ...resp.data,
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Erro ao criar ticket no IXC:", errorMessage);
+      throw new Error("IXC: Falha ao criar ticket");
+    }
+  },
+
+  // ==========================================================================
+  // GERENCIAMENTO DE CONTA
+  // ==========================================================================
+
+  /**
+   * Altera a senha do hotsite (portal do cliente)
+   */
+  async alterarSenhaHotsite(
+    clienteId: number,
+    novaSenha: string
+  ): Promise<any> {
+    const baseUrl = getBaseUrl();
+    if (!baseUrl) {
+      throw new Error("IXC URL não configurada");
+    }
+
+    const url = `${baseUrl}/cliente/${clienteId}`;
+
+    try {
+      const resp = await axios.put(
+        url,
+        { senha: novaSenha },
+        { headers: getHeaders() }
+      );
+
+      return resp.data;
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Erro ao alterar senha no IXC:", errorMessage);
+      throw new Error("IXC: Falha ao alterar senha");
+    }
+  },
+
+  // ==========================================================================
+  // CONSUMO E ESTATÍSTICAS
+  // ==========================================================================
+
+  /**
+   * Obtém histórico completo de consumo de dados
+   */
+  async getConsumoCompleto(login: any): Promise<ConsumoCompleto> {
     const loginId = login.id;
+
     if (!loginId) {
       return {
         total_download_bytes: 0,
@@ -163,6 +328,7 @@ export const ixcService = {
     const totalDownload = parseFloat(login.download_atual || "0");
     const totalUpload = parseFloat(login.upload_atual || "0");
 
+    // Buscar dados diários e mensais em paralelo
     const [dailyRes, monthlyRes] = await Promise.all([
       fetchIxc("radusuarios_consumo_d", {
         qtype: "id_login",
@@ -184,7 +350,8 @@ export const ixcService = {
       }),
     ]);
 
-    const daily = dailyRes
+    // Processar dados diários
+    const daily: ConsumoDaily[] = dailyRes
       .map((d: any) => ({
         data: d.data ? d.data.split(" ")[0] : d.data,
         download_bytes: parseFloat(d.consumo || "0"),
@@ -192,9 +359,11 @@ export const ixcService = {
       }))
       .reverse();
 
-    const weekly = daily.slice(-7);
+    // Últimos 7 dias para visualização semanal
+    const weekly: ConsumoDaily[] = daily.slice(-7);
 
-    const monthly = monthlyRes
+    // Processar dados mensais
+    const monthly: ConsumoMonthly[] = monthlyRes
       .map((m: any) => ({
         mes_ano: m.data ? m.data.substring(0, 7) : "",
         download_bytes: parseFloat(m.consumo || "0"),
