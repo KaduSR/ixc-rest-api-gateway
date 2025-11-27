@@ -32,7 +32,7 @@ export async function trocarSenha(req: any, res: Response) {
     if (!validacao.success) {
       return res.status(400).json({
         error: "Dados inválidos",
-        detalhes: validacao.error.errors.map((e) => ({
+        detalhes: validacao.error.issues.map((e) => ({
           campo: e.path.join("."),
           mensagem: e.message,
         })),

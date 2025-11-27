@@ -80,12 +80,21 @@ interface ConsumoCompleto {
 }
 
 interface TicketPayload {
-  id_cliente: number;
-  assunto: string;
-  descricao: string;
+  id_cliente: string;
+  titulo: string;
+  menssagem: string;
   id_setor?: number;
   id_tipo?: number;
   prioridade?: string;
+  id_contrato?: string;
+  id_login?: string;
+  id_ticket_origem?: string;
+  status?: string;
+  origem_endereco?: string;
+  endereco?: string;
+  atualizar_cliente?: string;
+  su_status?: string;
+  interacao_pendente?: string;
 }
 
 interface TicketResponse {
@@ -189,6 +198,20 @@ export const ixcService = {
       sortname: "fn_areceber.data_vencimento",
       sortorder: "desc",
     });
+  },
+
+  /**
+   * Obtém dados PIX de uma fatura
+   */
+  async getPixFatura(faturaId: number): Promise<any | null> {
+    // TODO: Implementar a lógica real para buscar dados PIX do IXC
+    console.warn(`[IXC Service] getPixFatura(${faturaId}) not implemented. Returning dummy data.`);
+    return {
+      qrCode: "dummy_qr_code_base64",
+      qrCodeText: "dummy_qr_code_text",
+      valor: 123.45,
+      status: "pendente",
+    };
   },
 
   // ==========================================================================

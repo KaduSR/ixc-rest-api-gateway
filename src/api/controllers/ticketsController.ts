@@ -5,19 +5,15 @@ import { ixcService } from "../../services/ixcService";
 
 // Schema de validação
 const criarTicketSchema = z.object({
-  assunto: z
-    .string()
-    .min(5, "Assunto deve ter no mínimo 5 caracteres")
-    .max(200),
-  mensagem: z
-    .string()
-    .min(10, "Mensagem deve ter no mínimo 10 caracteres")
-    .max(5000),
-  prioridade: z.enum(["B", "N", "M", "A", "U"]).optional().default("N"),
-  tipo: z.enum(["T", "I", "O"]).optional().default("O"), // Telefone, Internet, Outros
+  assunto: z.string().min(5).max(200),
+  mensagem: z.string().min(10).max(5000),
+  prioridade: z.enum(["A", "B", "N", "M", "U"]).default("N"),
+  tipo: z.enum(["T", "I", "O"]).default("T"),
   contratoId: z.number().optional(),
   loginId: z.number().optional(),
 });
+
+type CriarTicketInput = z.infer<typeof criarTicketSchema>;
 
 /**
  * Cria um novo ticket de atendimento
@@ -30,9 +26,9 @@ export async function criarTicket(req: any, res: Response) {
     if (!validacao.success) {
       return res.status(400).json({
         error: "Dados inválidos",
-        detalhes: validacao.error.errors.map((e) => ({
-          campo: e.path.join("."),
-          mensagem: e.message,
+        detalhes: validacao.error.issues.map((issue) => ({
+          campo: issue.path.join("."),
+          mensagem: issue.message,
         })),
       });
     }
