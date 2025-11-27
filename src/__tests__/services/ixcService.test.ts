@@ -3,7 +3,31 @@ import { cacheManager } from "../../utils/cache";
 import axios from "axios";
 
 // Mock do axios
-jest.mock("axios");
+jest.mock("axios", () => {
+  const mockAxiosInstance = {
+    post: jest.fn(),
+    put: jest.fn(),
+    get: jest.fn(),
+    delete: jest.fn(),
+    request: jest.fn(),
+    defaults: { headers: { common: {} } },
+    interceptors: {
+      request: { use: jest.fn(), eject: jest.fn() },
+      response: { use: jest.fn(), eject: jest.fn() },
+    },
+  };
+
+  return {
+    __esModule: true,
+    default: {
+      create: jest.fn(() => mockAxiosInstance),
+      isAxiosError: jest.fn((payload: any) => payload && payload.isAxiosError),
+    },
+    // Export other named exports from axios if needed, e.g., AxiosError, AxiosInstance
+    AxiosError: jest.fn(), // Mock AxiosError
+    AxiosInstance: jest.fn(), // Mock AxiosInstance
+  };
+});
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 // Mock do logger
@@ -33,20 +57,6 @@ describe("IxcService", () => {
     
     // Criar instância do serviço
     ixcService = new IxcService();
-
-    // Mock padrão do axios
-    mockedAxios.create.mockReturnValue({
-      post: jest.fn(),
-      put: jest.fn(),
-      get: jest.fn(),
-      delete: jest.fn(),
-      request: jest.fn(),
-      defaults: { headers: { common: {} } },
-      interceptors: {
-        request: { use: jest.fn(), eject: jest.fn() },
-        response: { use: jest.fn(), eject: jest.fn() },
-      },
-    } as any);
   });
 
   afterEach(() => {
@@ -69,7 +79,7 @@ describe("IxcService", () => {
     };
 
     it("deve buscar clientes por CPF com sucesso", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: {
           registros: [mockCliente],
@@ -90,7 +100,7 @@ describe("IxcService", () => {
     });
 
     it("deve usar cache na segunda chamada", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [mockCliente] },
       });
@@ -107,7 +117,7 @@ describe("IxcService", () => {
     });
 
     it("deve retornar array vazio quando não encontrar clientes", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [] },
       });
@@ -118,7 +128,7 @@ describe("IxcService", () => {
     });
 
     it("deve lançar erro quando a API falhar", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockRejectedValueOnce(
         new Error("Network error")
       );
@@ -137,7 +147,7 @@ describe("IxcService", () => {
         hotsite_email: "joao@test.com",
       };
 
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [mockCliente] },
       });
@@ -148,7 +158,7 @@ describe("IxcService", () => {
     });
 
     it("deve retornar null quando não encontrar cliente", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [] },
       });
@@ -174,7 +184,7 @@ describe("IxcService", () => {
     };
 
     it("deve listar faturas do cliente", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [mockFatura] },
       });
@@ -186,7 +196,7 @@ describe("IxcService", () => {
     });
 
     it("deve usar cache nas chamadas subsequentes", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [mockFatura] },
       });
@@ -217,7 +227,7 @@ describe("IxcService", () => {
     };
 
     it("deve criar ticket com sucesso", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: mockTicketResponse,
       });
@@ -235,7 +245,7 @@ describe("IxcService", () => {
     });
 
     it("deve invalidar cache do cliente após criar ticket", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: mockTicketResponse,
       });
@@ -248,7 +258,7 @@ describe("IxcService", () => {
     });
 
     it("deve lançar erro quando payload inválido", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockRejectedValueOnce({
         response: {
           status: 400,
@@ -268,7 +278,7 @@ describe("IxcService", () => {
 
   describe("alterarSenhaHotsite", () => {
     it("deve alterar senha com sucesso", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.put as jest.Mock).mockResolvedValueOnce({
         data: { success: true },
       });
@@ -283,7 +293,7 @@ describe("IxcService", () => {
     });
 
     it("deve invalidar cache após alterar senha", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.put as jest.Mock).mockResolvedValueOnce({
         data: { success: true },
       });
@@ -311,7 +321,7 @@ describe("IxcService", () => {
     };
 
     it("deve retornar consumo completo", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock)
         .mockResolvedValueOnce({
           data: {
@@ -370,7 +380,7 @@ describe("IxcService", () => {
     });
 
     it("deve testar conexão com sucesso", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockResolvedValueOnce({
         data: { registros: [] },
       });
@@ -381,7 +391,7 @@ describe("IxcService", () => {
     });
 
     it("deve retornar false quando conexão falhar", async () => {
-      const axiosInstance = mockedAxios.create();
+      const axiosInstance = mockedAxios.create({});
       (axiosInstance.post as jest.Mock).mockRejectedValueOnce(
         new Error("Connection failed")
       );
