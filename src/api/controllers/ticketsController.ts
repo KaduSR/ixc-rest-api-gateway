@@ -253,6 +253,42 @@ export async function buscarTicket(req: any, res: Response) {
   }
 }
 
+
+export async function listarTiposAtendimento(req: Request, res: Response) {
+  return res.json({
+    success: true,
+    tipos: [
+      {
+        id: "T",
+        nome: "Telefone",
+        descricao: "Problemas com telefonia",
+        icone: "phone",
+      },
+      {
+        id: "I",
+        nome: "Internet",
+        descricao: "Problemas com conexão de internet",
+        icone: "wifi",
+      },
+      {
+        id: "O",
+        nome: "Outros",
+        descricao: "Outros assuntos",
+        icone: "help-circle",
+      },
+    ],
+    prioridades: [
+      { id: "B", nome: "Baixa", cor: "success" },
+      { id: "N", nome: "Normal", cor: "info" },
+      { id: "M", nome: "Média", cor: "warning" },
+      { id: "A", nome: "Alta", cor: "danger" },
+      { id: "U", nome: "Urgente", cor: "danger" },
+    ],
+  });
+}
+
+export default listarTiposAtendimento;
+
 // ============================================================================
 // FUNÇÕES AUXILIARES
 // ============================================================================
